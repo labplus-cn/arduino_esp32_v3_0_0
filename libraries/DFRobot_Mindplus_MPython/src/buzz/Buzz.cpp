@@ -35,15 +35,13 @@ Buzz::Buzz()
 
 void Buzz::begin(uint8_t pin) {
     _pin = pin;
-    ledcSetup(0, 500, 10);
-    ledcWrite(0, 512);
+    pinMode(_pin, OUTPUT);
 }
 
 void Buzz::on(void)
 {
     if (_pin < 0)
         return;
-    ledcAttachPin(_pin, 0);
     _on = true;
 }
 
@@ -51,7 +49,7 @@ void Buzz::off(void)
 {
     if (_pin < 0)
         return;
-    ledcDetachPin(_pin);
+    noTone(_pin);
     digitalWrite(_pin, 0); // fireBeetleEsp32 停止异常bug
     _on = false;
 }
@@ -74,8 +72,7 @@ void Buzz::freq(uint32_t _freq)
         on();
         _on = true;
     }
-    ledcWrite(0, 512);
-    ledcWriteTone(0, _freq);
+    tone(_pin, _freq);
 }
 
 void Buzz::freq(int _freq)
@@ -123,7 +120,7 @@ void Buzz::freq(uint32_t _freq, Beat beat)
         on();
         _on = true;
     }
-    ledcWriteTone(0, _freq);
+    tone(_pin, _freq);
     if (delay_time)
     {
         delay_time = delay_time * ((60.0 / tempo) * (4.0 / ticks));
@@ -150,7 +147,7 @@ void Buzz::freq(uint32_t _freq, double beat)
         on();
         _on = true;
     }
-    ledcWriteTone(0, _freq);
+    tone(_pin, _freq);
     delay(beat);
     off();
     delay(5);

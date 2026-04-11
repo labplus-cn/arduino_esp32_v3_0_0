@@ -2,6 +2,7 @@
 #define __BUZZ_H
 
 #include "Arduino.h"
+#include "driver/ledc.h"
 
 //To the beat
 enum Beat {

@@ -4,7 +4,7 @@
 #include "Arduino.h"
 // #include "display/Display.h"
 #include "rgb/RGB.h"
-// #include "buzz/Buzz.h"
+#include "buzz/Buzz.h"
 // #include "audio/Audio.h"
 #include "button/Button.h"
 #include "touch/TouchPad.h"
@@ -20,7 +20,7 @@ public:
     // 功能部件访问
     // Display display;
     RGB rgb;
-    // Buzz buzz;  
+    Buzz buzz;  
     // Audio audio;
     Button buttonA;
     Button buttonB;
