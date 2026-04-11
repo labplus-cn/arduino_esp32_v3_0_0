@@ -7,7 +7,7 @@
 // #include "buzz/Buzz.h"
 // #include "audio/Audio.h"
 #include "button/Button.h"
-// #include "touch/TouchPad.h"
+#include "touch/TouchPad.h"
 // #include "sensor/Sensor.h"
 // #include "gpio/GPIO.h"
 
@@ -25,12 +25,12 @@ public:
     Button buttonA;
     Button buttonB;
     Button buttonAB;
-    // TouchPad touchPadP; 
-    // TouchPad touchPadY; 
-    // TouchPad touchPadT; 
-    // TouchPad touchPadH; 
-    // TouchPad touchPadO; 
-    // TouchPad touchPadN; 
+    TouchPad touchPadP; 
+    TouchPad touchPadY; 
+    TouchPad touchPadT; 
+    TouchPad touchPadH; 
+    TouchPad touchPadO; 
+    TouchPad touchPadN; 
     // Accelerometer accelerometer;
     // Magnetometer magnetometer;
     // LightSensor lightSensor;

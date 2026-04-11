@@ -2,8 +2,7 @@
 
 MPython::MPython() 
     : buttonA(0), buttonB(46), buttonAB(0, 46)
-    // , touchPadP(9), touchPadY(10), touchPadT(11), touchPadH(12), touchPadO(13), touchPadN(14),
-    //   sound(6)
+    , touchPadP(9), touchPadY(10), touchPadT(11), touchPadH(12), touchPadO(13), touchPadN(14)
 {
 }
 
@@ -24,12 +23,12 @@ void MPython::begin(void)
 void MPython::setTouchThreshold(uint32_t threshold)
 {
     threshold = constrain(threshold, 0, 80);
-    // touchPadP.threshold = threshold;
-    // touchPadY.threshold = threshold;
-    // touchPadT.threshold = threshold;
-    // touchPadH.threshold = threshold;
-    // touchPadO.threshold = threshold;
-    // touchPadN.threshold = threshold;
+    touchPadP.threshold = threshold;
+    touchPadY.threshold = threshold;
+    touchPadT.threshold = threshold;
+    touchPadH.threshold = threshold;
+    touchPadO.threshold = threshold;
+    touchPadN.threshold = threshold;
 }
 
 // 全局对象实例化
