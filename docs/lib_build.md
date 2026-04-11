@@ -1,0 +1,3 @@
+本项目是一个arduino库。
+我需要在library目录下完善DFRobot_Mindplus_MPython库，这是为掌控板3.0编写的一个库。
+请在library目录下完善DFRobot_Mindplus_MPython库。
