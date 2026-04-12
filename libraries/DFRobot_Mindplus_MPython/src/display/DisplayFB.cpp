@@ -1,5 +1,8 @@
 #include "DisplayFB.h"
 
+// 字体定义
+#define gfxFont ((GFXfont *)(&FreeMonoBold12pt7b))
+
 // 构造函数
 DisplayFB::DisplayFB() {
 }
@@ -41,16 +44,6 @@ void DisplayFB::fillScreen(uint16_t color) {
 // 绘制文本
 void DisplayFB::drawText(int x, int y, const char *text, uint16_t color) {
     print(&_fb, x, y, color, text);
-    // 将帧缓冲区数据发送到LCD
-    _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
-}
-
-// 绘制带变量的文本
-void DisplayFB::drawText(int x, int y, const char *format, uint16_t color, ...) {
-    va_list args;
-    va_start(args, color);
-    printf(&_fb, x, y, color, format, args);
-    va_end(args);
     // 将帧缓冲区数据发送到LCD
     _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
 }
@@ -248,23 +241,52 @@ void DisplayFB::drawFastVLine(image_fb_t *fb, int32_t x, int32_t y, int32_t h, u
 }
 
 uint8_t DisplayFB::putc(image_fb_t *fb, int32_t x, int32_t y, uint16_t color, unsigned char c) {
-    // 简单实现，实际应该使用字体库
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            if ((c >> j) & 1) {
-                int index = ((y + i) * fb->width + (x + j)) * 2;
-                fb->buf[index] = color & 0xFF;
-                fb->buf[index + 1] = color >> 8;
+    uint16_t line_width;
+    uint8_t xa = 0, bit = 0, bits = 0, xx, yy;
+    uint8_t *bitmap;
+    GFXglyph *glyph;
+
+    if ((c < 32) || (c < gfxFont->first) || (c > gfxFont->last)) {
+        return xa;
+    }
+
+    c -= gfxFont->first;
+
+    glyph = &(gfxFont->glyph[c]);
+    bitmap = gfxFont->bitmap + glyph->bitmapOffset;
+
+    xa = glyph->xAdvance;
+    x += glyph->xOffset;
+    y += glyph->yOffset;
+    y += gfxFont->yOffset;
+    line_width = 0;
+
+    for (yy = 0; yy < glyph->height; yy++) {
+        for (xx = 0; xx < glyph->width; xx++) {
+            if (bit == 0) {
+                bits = *bitmap++;
+                bit = 0x80;
             }
+            if (bits & bit) {
+                line_width++;
+            } else if (line_width) {
+                drawFastHLine(fb, x + xx - line_width, y + yy, line_width, color);
+                line_width = 0;
+            }
+            bit >>= 1;
+        }
+        if (line_width) {
+            drawFastHLine(fb, x + xx - line_width, y + yy, line_width, color);
+            line_width = 0;
         }
     }
-    return 8;
+    return xa;
 }
 
 uint32_t DisplayFB::print(image_fb_t *fb, int32_t x, int32_t y, uint16_t color, const char *str) {
     uint32_t l = 0;
-    int xc = x, yc = y, lc = fb->width - 8;
-    uint8_t fh = 8;
+    int xc = x, yc = y, lc = fb->width - gfxFont->glyph[0].xAdvance;
+    uint8_t fh = gfxFont->yAdvance;
     char c = *str++;
     while (c) {
         if (c != '\r') {
@@ -285,24 +307,3 @@ uint32_t DisplayFB::print(image_fb_t *fb, int32_t x, int32_t y, uint16_t color, 
     return l;
 }
 
-uint32_t DisplayFB::printf(image_fb_t *fb, int32_t x, int32_t y, uint16_t color, const char *format, va_list args) {
-    char loc_buf[64];
-    char *temp = loc_buf;
-    int len;
-    va_list copy;
-    va_copy(copy, args);
-    len = vsnprintf(loc_buf, sizeof(loc_buf), format, args);
-    va_end(copy);
-    if (len >= sizeof(loc_buf)) {
-        temp = (char *)malloc(len + 1);
-        if (temp == NULL) {
-            return 0;
-        }
-    }
-    vsnprintf(temp, len + 1, format, args);
-    print(fb, x, y, color, temp);
-    if (len > 64) {
-        free(temp);
-    }
-    return len;
-}

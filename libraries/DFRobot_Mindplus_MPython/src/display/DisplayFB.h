@@ -4,16 +4,29 @@
 #include "Arduino.h"
 #include "lcd/LCD_jd9853.h"
 
-// 颜色定义
-#define GUI_BLACK       0x0000
-#define GUI_WHITE       0xFFFF
-#define GUI_RED         0xF800
-#define GUI_GREEN       0x07E0
-#define GUI_BLUE        0x001F
-#define GUI_CYAN        0x07FF
-#define GUI_MAGENTA     0xF81F
-#define GUI_YELLOW      0xFFE0
-#define GUI_GRAY        0x8410
+// 字体结构定义
+typedef struct {
+    uint16_t bitmapOffset;   // 指向字体位图的偏移
+    uint8_t width, height;   // 位图的宽度和高度（像素）
+    uint8_t xAdvance;        // 光标前进距离（x轴）
+    int8_t xOffset, yOffset; // 从光标位置到左上角的距离
+} GFXglyph;
+
+typedef struct {
+    uint8_t *bitmap;     // 字形位图，连接在一起
+    GFXglyph *glyph;     // 字形数组
+    uint8_t first, last; // ASCII范围
+    uint8_t yAdvance;    // 换行距离（y轴）
+    uint8_t yOffset;     // 字体零线的Y偏移（y轴）
+} GFXfont;
+
+// 包含字体库
+#include "fb_gfx/FreeMonoBold12pt7b.h"
+
+// 像素格式定义
+typedef enum {
+    PIXFORMAT_GRAYSCALE, PIXFORMAT_RGB565, PIXFORMAT_RGB888,
+} pixformat_t;
 
 // 图像帧缓冲区结构
 typedef struct {
@@ -33,7 +46,6 @@ public:
     void fillScreen(uint16_t color);
     // 绘制文本
     void drawText(int x, int y, const char *text, uint16_t color);
-    void drawText(int x, int y, const char *format, uint16_t color, ...);
     // 绘制直线
     void drawLine(int x0, int y0, int x1, int y1, uint16_t color);
     // 绘制矩形

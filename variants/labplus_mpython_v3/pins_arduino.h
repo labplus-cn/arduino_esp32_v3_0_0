@@ -14,7 +14,7 @@
 // #define BUILTIN_LED    LED_BUILTIN  // backward compatibility
 // #define LED_BUILTIN    LED_BUILTIN
 #define RGB_BUILTIN    8
-#define RGB_BRIGHTNESS 30
+// #define RGB_BRIGHTNESS 30
 
 // static const uint8_t TX = 43;
 // static const uint8_t RX = 44;

@@ -40,7 +40,7 @@ static esp_err_t panel_jd9853_mirror(esp_lcd_panel_t *panel, bool mirror_x, bool
 static esp_err_t panel_jd9853_swap_xy(esp_lcd_panel_t *panel, bool swap_axes);
 static esp_err_t panel_jd9853_set_gap(esp_lcd_panel_t *panel, int x_gap, int y_gap);
 static esp_err_t panel_jd9853_disp_on_off(esp_lcd_panel_t *panel, bool off);
-static esp_err_t panel_jd9853_sleep(esp_lcd_panel_t *panel, bool sleep);
+// static esp_err_t panel_jd9853_sleep(esp_lcd_panel_t *panel, bool sleep);
 
 typedef struct {
     esp_lcd_panel_t base;
@@ -78,10 +78,10 @@ esp_lcd_new_panel_jd9853(const esp_lcd_panel_io_handle_t io, const esp_lcd_panel
     }
 
     switch (panel_dev_config->rgb_endian) {
-    case LCD_RGB_ENDIAN_RGB:
+    case LCD_RGB_ELEMENT_ORDER_RGB:
         jd9853->madctl_val = 0;
         break;
-    case LCD_RGB_ENDIAN_BGR:
+    case LCD_RGB_ELEMENT_ORDER_BGR:
         jd9853->madctl_val |= LCD_CMD_BGR_BIT;
         break;
     default:
@@ -125,7 +125,7 @@ esp_lcd_new_panel_jd9853(const esp_lcd_panel_io_handle_t io, const esp_lcd_panel
     jd9853->base.mirror = panel_jd9853_mirror;
     jd9853->base.swap_xy = panel_jd9853_swap_xy;
     jd9853->base.disp_on_off = panel_jd9853_disp_on_off;
-    jd9853->base.disp_sleep = panel_jd9853_sleep;
+    // jd9853->base.disp_sleep = panel_jd9853_sleep;
     *ret_panel = &(jd9853->base);
     ESP_LOGD(TAG, "new jd9853 panel @%p", jd9853);
 
@@ -299,19 +299,19 @@ static esp_err_t panel_jd9853_disp_on_off(esp_lcd_panel_t *panel, bool on_off)
     return ESP_OK;
 }
 
-static esp_err_t panel_jd9853_sleep(esp_lcd_panel_t *panel, bool sleep)
-{
-    jd9853_panel_t *jd9853 = __containerof(panel, jd9853_panel_t, base);
-    esp_lcd_panel_io_handle_t io = jd9853->io;
-    int command = 0;
-    if (sleep) {
-        command = LCD_CMD_SLPIN;
-    } else {
-        command = LCD_CMD_SLPOUT;
-    }
-    ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(io, command, NULL, 0), TAG,
-                        "io tx param failed");
-    vTaskDelay(pdMS_TO_TICKS(100));
+// static esp_err_t panel_jd9853_sleep(esp_lcd_panel_t *panel, bool sleep)
+// {
+//     jd9853_panel_t *jd9853 = __containerof(panel, jd9853_panel_t, base);
+//     esp_lcd_panel_io_handle_t io = jd9853->io;
+//     int command = 0;
+//     if (sleep) {
+//         command = LCD_CMD_SLPIN;
+//     } else {
+//         command = LCD_CMD_SLPOUT;
+//     }
+//     ESP_RETURN_ON_ERROR(esp_lcd_panel_io_tx_param(io, command, NULL, 0), TAG,
+//                         "io tx param failed");
+//     vTaskDelay(pdMS_TO_TICKS(100));
 
-    return ESP_OK;
-}
+//     return ESP_OK;
+// }

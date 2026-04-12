@@ -8,31 +8,14 @@
 #include <stdbool.h>
 #include "esp_err.h"
 #include "esp_lcd_types.h"
+#include "esp_lcd_panel_vendor.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /**
- * @brief Configuration structure for panel device
- */
-typedef struct {
-    int reset_gpio_num; /*!< GPIO used to reset the LCD panel, set to -1 if it's not used */
-    union {
-        esp_lcd_color_space_t color_space;     /*!< @deprecated Set RGB color space, please use rgb_ele_order instead */
-        lcd_color_rgb_endian_t rgb_endian;     /*!< @deprecated Set RGB data endian, please use rgb_ele_order instead */
-        lcd_rgb_element_order_t rgb_ele_order; /*!< Set RGB element order, RGB or BGR */
-    };
-    lcd_rgb_data_endian_t data_endian;         /*!< Set the data endian for color data larger than 1 byte */
-    unsigned int bits_per_pixel;       /*!< Color depth, in bpp */
-    struct {
-        unsigned int reset_active_high: 1; /*!< Setting this if the panel reset is high level active */
-    } flags;                               /*!< LCD panel config flags */
-    void *vendor_config; /*!< vendor specific configuration, optional, left as NULL if not used */
-} esp_lcd_panel_dev_config_t;
-
-/**
- * @brief Create LCD panel for model ST7789
+ * @brief Create LCD panel for model JD9853
  *
  * @param[in] io LCD panel IO handle
  * @param[in] panel_dev_config general panel device configuration
