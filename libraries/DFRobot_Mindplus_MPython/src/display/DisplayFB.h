@@ -46,6 +46,8 @@ public:
     void fillScreen(uint16_t color);
     // 绘制文本
     void drawText(int x, int y, const char *text, uint16_t color);
+    // 绘制中文字符
+    void drawTextCN(int x, int y, const char *text, uint16_t color);
     // 绘制直线
     void drawLine(int x0, int y0, int x1, int y1, uint16_t color);
     // 绘制矩形

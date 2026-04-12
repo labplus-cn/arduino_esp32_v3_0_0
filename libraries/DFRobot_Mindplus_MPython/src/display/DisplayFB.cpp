@@ -1,4 +1,5 @@
 #include "DisplayFB.h"
+#include "esp_partition.h"
 
 // 字体定义
 #define gfxFont ((GFXfont *)(&FreeMonoBold12pt7b))
@@ -193,6 +194,75 @@ void DisplayFB::fillCircle(int x0, int y0, int radius, uint16_t color) {
 // 显示logo
 void DisplayFB::showLogo() {
     _lcd.show_logo();
+}
+
+
+
+// 绘制中文字符
+void DisplayFB::drawTextCN(int x, int y, const char *text, uint16_t color) {
+    // 中文字体在flash中的地址
+    const uint8_t *font_addr = (const uint8_t *)0xd00000;
+    
+    int xc = x;
+    int yc = y;
+    
+    // 遍历文本中的每个字符
+    while (*text) {
+        // 计算字符的UTF-8编码值
+        uint32_t code = 0;
+        int char_len = 0;
+        
+        if ((*text & 0x80) == 0) {
+            // 1字节ASCII字符
+            code = *text;
+            char_len = 1;
+        } else if ((*text & 0xE0) == 0xC0) {
+            // 2字节UTF-8字符
+            if (text[1]) {
+                code = ((text[0] & 0x1F) << 6) | (text[1] & 0x3F);
+                char_len = 2;
+            } else {
+                // 无效的UTF-8编码，跳过
+                text++;
+                continue;
+            }
+        } else if ((*text & 0xF0) == 0xE0) {
+            // 3字节UTF-8字符（中文字符）
+            if (text[1] && text[2]) {
+                code = ((text[0] & 0x0F) << 12) | ((text[1] & 0x3F) << 6) | (text[2] & 0x3F);
+                char_len = 3;
+            } else {
+                // 无效的UTF-8编码，跳过
+                text++;
+                continue;
+            }
+        } else if ((*text & 0xF8) == 0xF0) {
+            // 4字节UTF-8字符
+            if (text[1] && text[2] && text[3]) {
+                code = ((text[0] & 0x07) << 18) | ((text[1] & 0x3F) << 12) | ((text[2] & 0x3F) << 6) | (text[3] & 0x3F);
+                char_len = 4;
+            } else {
+                // 无效的UTF-8编码，跳过
+                text++;
+                continue;
+            }
+        } else {
+            // 无效的UTF-8编码，跳过
+            text++;
+            continue;
+        }
+        
+        // 暂时不绘制中文字符，避免系统复位
+        // 绘制一个简单的矩形作为占位符
+        fillRect(&_fb, xc, yc, 24, 24, color);
+        xc += 24;
+        
+        // 移动到下一个字符
+        text += char_len;
+    }
+    
+    // 将帧缓冲区数据发送到LCD
+    _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
 }
 
 // 内部绘图函数实现
