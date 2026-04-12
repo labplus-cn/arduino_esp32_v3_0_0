@@ -2,7 +2,7 @@
 #define __MPYTHON_H
 
 #include "Arduino.h"
-// #include "display/Display.h"
+#include "display/DisplayFB.h"
 #include "rgb/RGB.h"
 #include "buzz/Buzz.h"
 // #include "audio/Audio.h"
@@ -15,10 +15,9 @@ class MPython {
 public:
     MPython();
     void begin(void);
-    void setTouchThreshold(uint32_t threshold = 35);
     
     // 功能部件访问
-    // Display display;
+    DisplayFB display;
     RGB rgb;
     Buzz buzz;  
     // Audio audio;
@@ -35,6 +34,8 @@ public:
     // Magnetometer magnetometer;
     // LightSensor lightSensor;
     // AnalogPin sound;
+
+private:
 };
 
 extern MPython mPython;
