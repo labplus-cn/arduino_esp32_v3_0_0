@@ -173,6 +173,9 @@ labplus_mpython_v3.menu.PartitionScheme.esp_sr_16.build.partitions=esp_sr_16
 labplus_mpython_v3.menu.PartitionScheme.custom=Custom
 labplus_mpython_v3.menu.PartitionScheme.custom.build.partitions=
 labplus_mpython_v3.menu.PartitionScheme.custom.upload.maximum_size=16777216
+labplus_mpython_v3.menu.PartitionScheme.mpython_16MiB=16M mpython v3
+labplus_mpython_v3.menu.PartitionScheme.mpython_16MiB.build.partitions=mpython_v3_16MiB
+labplus_mpython_v3.menu.PartitionScheme.mpython_16MiB.upload.maximum_size=3145728
 
 labplus_mpython_v3.menu.CPUFreq.240=240MHz (WiFi)
 labplus_mpython_v3.menu.CPUFreq.240.build.f_cpu=240000000L
