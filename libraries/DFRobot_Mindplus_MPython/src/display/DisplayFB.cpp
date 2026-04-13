@@ -1,11 +1,12 @@
 #include "DisplayFB.h"
 #include "esp_partition.h"
+#include "lvgl_font/LVFontReader.h"
 
 // 字体定义
 #define gfxFont ((GFXfont *)(&FreeMonoBold12pt7b))
 
 // 构造函数
-DisplayFB::DisplayFB() {
+DisplayFB::DisplayFB() : _fontReader(nullptr) {
 }
 
 // 初始化函数
@@ -38,15 +39,11 @@ esp_err_t DisplayFB::begin() {
 // 清空屏幕
 void DisplayFB::fillScreen(uint16_t color) {
     fillRect(&_fb, 0, 0, _width, _height, color);
-    // 将帧缓冲区数据发送到LCD
-    _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
 }
 
 // 绘制文本
 void DisplayFB::drawText(int x, int y, const char *text, uint16_t color) {
     print(&_fb, x, y, color, text);
-    // 将帧缓冲区数据发送到LCD
-    _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
 }
 
 // 绘制直线
@@ -82,8 +79,6 @@ void DisplayFB::drawLine(int x0, int y0, int x1, int y1, uint16_t color) {
         }
     }
     
-    // 将帧缓冲区数据发送到LCD
-    _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
 }
 
 // 绘制矩形
@@ -92,15 +87,11 @@ void DisplayFB::drawRect(int x, int y, int width, int height, uint16_t color) {
     drawFastHLine(&_fb, x, y + height - 1, width, color);
     drawFastVLine(&_fb, x, y, height, color);
     drawFastVLine(&_fb, x + width - 1, y, height, color);
-    // 将帧缓冲区数据发送到LCD
-    _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
 }
 
 // 填充矩形
 void DisplayFB::fillRect(int x, int y, int width, int height, uint16_t color) {
     fillRect(&_fb, x, y, width, height, color);
-    // 将帧缓冲区数据发送到LCD
-    _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
 }
 
 // 绘制圆形
@@ -161,8 +152,6 @@ void DisplayFB::drawCircle(int x0, int y0, int radius, uint16_t color) {
         }
     }
     
-    // 将帧缓冲区数据发送到LCD
-    _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
 }
 
 // 填充圆形
@@ -187,8 +176,6 @@ void DisplayFB::fillCircle(int x0, int y0, int radius, uint16_t color) {
         }
     }
     
-    // 将帧缓冲区数据发送到LCD
-    _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
 }
 
 // 显示logo
@@ -199,69 +186,89 @@ void DisplayFB::showLogo() {
 
 
 // 绘制中文字符
-void DisplayFB::drawTextCN(int x, int y, const char *text, uint16_t color) {
-    // 中文字体在flash中的地址
-    const uint8_t *font_addr = (const uint8_t *)0xd00000;
-    
+void DisplayFB::drawTextCN(int x, int y, const char *text, uint16_t color, bool wrap) {
+    // 懒初始化字体读取器
+    if (_fontReader == nullptr) {
+        _fontReader = new FontReader();
+        if (!_fontReader->init()) {
+            delete _fontReader;
+            _fontReader = nullptr;
+            return;
+        }
+    }
+
     int xc = x;
     int yc = y;
-    
-    // 遍历文本中的每个字符
+    int line_height = _fontReader->getLineHeight();
+    int baseline    = _fontReader->getBaseLine();
+
     while (*text) {
-        // 计算字符的UTF-8编码值
+        // UTF-8解码
         uint32_t code = 0;
         int char_len = 0;
-        
         if ((*text & 0x80) == 0) {
-            // 1字节ASCII字符
-            code = *text;
-            char_len = 1;
-        } else if ((*text & 0xE0) == 0xC0) {
-            // 2字节UTF-8字符
-            if (text[1]) {
-                code = ((text[0] & 0x1F) << 6) | (text[1] & 0x3F);
-                char_len = 2;
-            } else {
-                // 无效的UTF-8编码，跳过
-                text++;
-                continue;
-            }
-        } else if ((*text & 0xF0) == 0xE0) {
-            // 3字节UTF-8字符（中文字符）
-            if (text[1] && text[2]) {
-                code = ((text[0] & 0x0F) << 12) | ((text[1] & 0x3F) << 6) | (text[2] & 0x3F);
-                char_len = 3;
-            } else {
-                // 无效的UTF-8编码，跳过
-                text++;
-                continue;
-            }
-        } else if ((*text & 0xF8) == 0xF0) {
-            // 4字节UTF-8字符
-            if (text[1] && text[2] && text[3]) {
-                code = ((text[0] & 0x07) << 18) | ((text[1] & 0x3F) << 12) | ((text[2] & 0x3F) << 6) | (text[3] & 0x3F);
-                char_len = 4;
-            } else {
-                // 无效的UTF-8编码，跳过
-                text++;
-                continue;
-            }
+            code = *text; char_len = 1;
+        } else if ((*text & 0xE0) == 0xC0 && text[1]) {
+            code = ((text[0] & 0x1F) << 6) | (text[1] & 0x3F); char_len = 2;
+        } else if ((*text & 0xF0) == 0xE0 && text[1] && text[2]) {
+            code = ((text[0] & 0x0F) << 12) | ((text[1] & 0x3F) << 6) | (text[2] & 0x3F); char_len = 3;
+        } else if ((*text & 0xF8) == 0xF0 && text[1] && text[2] && text[3]) {
+            code = ((text[0] & 0x07) << 18) | ((text[1] & 0x3F) << 12) | ((text[2] & 0x3F) << 6) | (text[3] & 0x3F); char_len = 4;
         } else {
-            // 无效的UTF-8编码，跳过
-            text++;
+            text++; continue;
+        }
+        text += char_len;
+
+        // 换行
+        if (code == '\n') { yc += line_height; xc = x; continue; }
+        if (code == '\r') { continue; }
+
+        glyph_render_t glyph;
+        if (!_fontReader->getGlyph(code, &glyph)) {
+            ::printf("[drawTextCN] glyph not found: U+%04lX\n", code);
+            xc += _fontReader->getFontSize() / 2;
             continue;
         }
-        
-        // 暂时不绘制中文字符，避免系统复位
-        // 绘制一个简单的矩形作为占位符
-        fillRect(&_fb, xc, yc, 24, 24, color);
-        xc += 24;
-        
-        // 移动到下一个字符
-        text += char_len;
+        ::printf("[drawTextCN] U+%04lX w=%d h=%d ox=%d oy=%d adv=%d\n",
+               code, glyph.width, glyph.height, glyph.offset_x, glyph.offset_y, glyph.advance_x);
+
+        // 自动换行
+        if (xc + glyph.advance_x > _width) {
+            if (!wrap) break;
+            yc += line_height - 7; xc = x;
+        }
+
+        uint8_t font_bpp = _fontReader->getBpp();
+        uint8_t mask = (1 << font_bpp) - 1;
+
+        int px_x = xc + glyph.offset_x;
+        int px_y = yc + baseline - glyph.offset_y - glyph.height;
+
+        int bit_pos = 0;
+        for (int row = 0; row < glyph.height; row++) {
+            for (int col = 0; col < glyph.width; col++) {
+                int byte_idx = bit_pos / 8;
+                int bit_off  = 7 - (bit_pos % 8);
+                uint8_t alpha = (glyph.bitmap[byte_idx] >> (bit_off - (font_bpp - 1))) & mask;
+                bit_pos += font_bpp;
+
+                if (alpha > 0) {
+                    int fx = px_x + col;
+                    int fy = px_y + row;
+                    if (fx >= 0 && fx < _width && fy >= 0 && fy < _height) {
+                        int idx = (fy * _width + fx) * 2;
+                        _fb.buf[idx]     = color & 0xFF;
+                        _fb.buf[idx + 1] = color >> 8;
+                    }
+                }
+            }
+        }
+
+        xc += glyph.advance_x;
     }
-    
-    // 将帧缓冲区数据发送到LCD
+}
+
+void DisplayFB::show() {
     _lcd.draw_bitmap(0, 0, _width, _height, _fb.buf);
 }
 

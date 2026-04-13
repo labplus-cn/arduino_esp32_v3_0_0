@@ -4,6 +4,8 @@
 #include "Arduino.h"
 #include "lcd/LCD_jd9853.h"
 
+class FontReader;
+
 // 字体结构定义
 typedef struct {
     uint16_t bitmapOffset;   // 指向字体位图的偏移
@@ -47,7 +49,7 @@ public:
     // 绘制文本
     void drawText(int x, int y, const char *text, uint16_t color);
     // 绘制中文字符
-    void drawTextCN(int x, int y, const char *text, uint16_t color);
+    void drawTextCN(int x, int y, const char *text, uint16_t color, bool wrap = true);
     // 绘制直线
     void drawLine(int x0, int y0, int x1, int y1, uint16_t color);
     // 绘制矩形
@@ -60,6 +62,8 @@ public:
     void fillCircle(int x0, int y0, int radius, uint16_t color);
     // 显示logo
     void showLogo();
+    // 将帧缓冲区写入显示屏
+    void show();
 
 private:
     // 帧缓冲区
@@ -70,6 +74,8 @@ private:
     int _width;
     // 屏幕高度
     int _height;
+    // 中文字体读取器
+    FontReader* _fontReader;
     // 内部绘图函数
     void fillRect(image_fb_t *fb, int32_t x, int32_t y, int32_t w, int32_t h, uint16_t color);
     void drawFastHLine(image_fb_t *fb, int32_t x, int32_t y, int32_t w, uint16_t color);
