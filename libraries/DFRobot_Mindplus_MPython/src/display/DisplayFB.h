@@ -46,10 +46,14 @@ public:
     esp_err_t begin();
     // 清空屏幕
     void fillScreen(uint16_t color);
+    // 擦除指定行（用背景色填充）
+    void clearLine(int line);
     // 绘制文本
     void drawText(int x, int y, const char *text, uint16_t color);
     // 绘制中文字符
     void drawTextCN(int x, int y, const char *text, uint16_t color, bool wrap = true);
+    // 按行绘制中文字符（行起始x=10，第一行y=10，行高30）
+    void drawTextCN(int line, const char *text, uint16_t color, bool wrap = true);
     // 绘制直线
     void drawLine(int x0, int y0, int x1, int y1, uint16_t color);
     // 绘制矩形
@@ -62,6 +66,8 @@ public:
     void fillCircle(int x0, int y0, int radius, uint16_t color);
     // 显示logo
     void showLogo();
+    // 显示二维码（x,y为左上角坐标，scale为每个模块的像素大小）
+    void drawQRCode(int x, int y, const char *text, int scale = 3);
     // 将帧缓冲区写入显示屏
     void show();
 
@@ -74,6 +80,8 @@ private:
     int _width;
     // 屏幕高度
     int _height;
+    // 背景色
+    uint16_t _bgColor;
     // 中文字体读取器
     FontReader* _fontReader;
     // 内部绘图函数

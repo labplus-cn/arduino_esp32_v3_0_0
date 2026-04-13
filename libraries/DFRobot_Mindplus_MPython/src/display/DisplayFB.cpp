@@ -2,11 +2,15 @@
 #include "esp_partition.h"
 #include "lvgl_font/LVFontReader.h"
 
+extern "C" {
+#include "qrcode/qrcodegen.h"
+}
+
 // 字体定义
 #define gfxFont ((GFXfont *)(&FreeMonoBold12pt7b))
 
 // 构造函数
-DisplayFB::DisplayFB() : _fontReader(nullptr) {
+DisplayFB::DisplayFB() : _fontReader(nullptr), _bgColor(0x0000) {
 }
 
 // 初始化函数
@@ -38,7 +42,14 @@ esp_err_t DisplayFB::begin() {
 
 // 清空屏幕
 void DisplayFB::fillScreen(uint16_t color) {
+    _bgColor = color;
     fillRect(&_fb, 0, 0, _width, _height, color);
+}
+
+// 擦除指定行
+void DisplayFB::clearLine(int line) {
+    int y = 10 + line * 30;
+    fillRect(&_fb, 0, y - 10, _width, 35, _bgColor);
 }
 
 // 绘制文本
@@ -183,6 +194,24 @@ void DisplayFB::showLogo() {
     _lcd.show_logo();
 }
 
+// 显示二维码
+void DisplayFB::drawQRCode(int x, int y, const char *text, int scale) {
+    uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
+    uint8_t tempBuf[qrcodegen_BUFFER_LEN_MAX];
+    if (!qrcodegen_encodeText(text, tempBuf, qrcode,
+            qrcodegen_Ecc_MEDIUM, qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX,
+            qrcodegen_Mask_AUTO, true)) {
+        return;
+    }
+    int size = qrcodegen_getSize(qrcode);
+    for (int row = 0; row < size; row++) {
+        for (int col = 0; col < size; col++) {
+            uint16_t color = qrcodegen_getModule(qrcode, col, row) ? 0x0000 : 0xFFFF;
+            fillRect(&_fb, x + col * scale, y + row * scale, scale, scale, color);
+        }
+    }
+}
+
 
 
 // 绘制中文字符
@@ -266,6 +295,10 @@ void DisplayFB::drawTextCN(int x, int y, const char *text, uint16_t color, bool 
 
         xc += glyph.advance_x;
     }
+}
+
+void DisplayFB::drawTextCN(int line, const char *text, uint16_t color, bool wrap) {
+    drawTextCN(5, 10 + line * 30, text, color, wrap);
 }
 
 void DisplayFB::show() {
