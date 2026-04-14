@@ -74,6 +74,7 @@ labplus_mpython_v3.build.boot=qio
 labplus_mpython_v3.build.boot_freq=80m
 labplus_mpython_v3.build.partitions=mpython_v3_16MiB
 labplus_mpython_v3.build.defines=
+labplus_mpython_v3.build.extra_libs="-Wl,--whole-archive" "{runtime.platform.path}/libraries/DFRobot_Mindplus_MPython/src/audio/esp_audio_codec/lib/esp32s3/libesp_audio_codec.a" "{runtime.platform.path}/libraries/DFRobot_Mindplus_MPython/src/audio/esp_audio_codec/lib/esp32s3/libesp_audio_simple_dec.a" "-Wl,--no-whole-archive"
 labplus_mpython_v3.build.loop_core=
 labplus_mpython_v3.build.event_core=
 labplus_mpython_v3.build.psram_type=qspi
