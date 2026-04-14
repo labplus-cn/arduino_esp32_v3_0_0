@@ -8,6 +8,7 @@
 // #include "audio/Audio.h"
 #include "button/Button.h"
 #include "touch/TouchPad.h"
+#include "fs/USBDISK.h"
 // #include "sensor/Sensor.h"
 // #include "gpio/GPIO.h"
 
@@ -29,7 +30,9 @@ public:
     TouchPad touchPadT; 
     TouchPad touchPadH; 
     TouchPad touchPadO; 
-    TouchPad touchPadN; 
+    TouchPad touchPadN;
+    // U盘功能
+    USBDISK usbDisk;
     // Accelerometer accelerometer;
     // Magnetometer magnetometer;
     // LightSensor lightSensor;

@@ -137,7 +137,7 @@ esp_err_t LCD_jd9853::init() {
 
     // 控制背光
     if (BOARD_LCD_BL >= 0) {
-        printf("BOARD_LCD_BL: %d\n", BOARD_LCD_BL);
+        // printf("BOARD_LCD_BL: %d\n", BOARD_LCD_BL);
         gpio_config_t io_conf = {
             .pin_bit_mask = 1ULL << BOARD_LCD_BL,
             .mode = GPIO_MODE_OUTPUT,

@@ -44,7 +44,7 @@ labplus_mpython_v3.upload.tool=esptool_py
 labplus_mpython_v3.upload.tool.default=esptool_py
 labplus_mpython_v3.upload.tool.network=esp_ota
 
-labplus_mpython_v3.upload.maximum_size=1310720
+labplus_mpython_v3.upload.maximum_size=3145728
 labplus_mpython_v3.upload.maximum_data_size=327680
 labplus_mpython_v3.upload.flags=
 labplus_mpython_v3.upload.extra_flags=
@@ -63,7 +63,7 @@ labplus_mpython_v3.build.variant=labplus_mpython_v3
 labplus_mpython_v3.build.board=MPYTHON_V3
 
 labplus_mpython_v3.build.usb_mode=1
-labplus_mpython_v3.build.cdc_on_boot=0
+labplus_mpython_v3.build.cdc_on_boot=1
 labplus_mpython_v3.build.msc_on_boot=0
 labplus_mpython_v3.build.dfu_on_boot=0
 labplus_mpython_v3.build.f_cpu=240000000L
@@ -72,7 +72,7 @@ labplus_mpython_v3.build.flash_freq=80m
 labplus_mpython_v3.build.flash_mode=dio
 labplus_mpython_v3.build.boot=qio
 labplus_mpython_v3.build.boot_freq=80m
-labplus_mpython_v3.build.partitions=default
+labplus_mpython_v3.build.partitions=mpython_v3_16MiB
 labplus_mpython_v3.build.defines=
 labplus_mpython_v3.build.loop_core=
 labplus_mpython_v3.build.event_core=
@@ -141,9 +141,11 @@ labplus_mpython_v3.menu.USBMode.hwcdc.build.usb_mode=1
 labplus_mpython_v3.menu.USBMode.default=USB-OTG (TinyUSB)
 labplus_mpython_v3.menu.USBMode.default.build.usb_mode=0
 
-labplus_mpython_v3.menu.CDCOnBoot.default=Disabled
-labplus_mpython_v3.menu.CDCOnBoot.default.build.cdc_on_boot=0
-labplus_mpython_v3.menu.CDCOnBoot.cdc=Disabled
+labplus_mpython_v3.menu.CDCOnBoot.disabled=Disabled
+labplus_mpython_v3.menu.CDCOnBoot.disabled.build.cdc_on_boot=0
+labplus_mpython_v3.menu.CDCOnBoot.default=Enabled
+labplus_mpython_v3.menu.CDCOnBoot.default.build.cdc_on_boot=1
+labplus_mpython_v3.menu.CDCOnBoot.cdc=Enabled
 labplus_mpython_v3.menu.CDCOnBoot.cdc.build.cdc_on_boot=1
 
 labplus_mpython_v3.menu.MSCOnBoot.default=Disabled
@@ -163,6 +165,9 @@ labplus_mpython_v3.menu.UploadMode.cdc=USB-OTG CDC (TinyUSB)
 labplus_mpython_v3.menu.UploadMode.cdc.upload.use_1200bps_touch=true
 labplus_mpython_v3.menu.UploadMode.cdc.upload.wait_for_upload_port=true
 
+labplus_mpython_v3.menu.PartitionScheme.mpython_16MiB=16M mpython v3
+labplus_mpython_v3.menu.PartitionScheme.mpython_16MiB.build.partitions=mpython_v3_16MiB
+labplus_mpython_v3.menu.PartitionScheme.mpython_16MiB.upload.maximum_size=3145728
 labplus_mpython_v3.menu.PartitionScheme.app3M_fat9M_16MB=16M Flash (3MB APP/9.9MB FATFS)
 labplus_mpython_v3.menu.PartitionScheme.app3M_fat9M_16MB.build.partitions=app3M_fat9M_16MB
 labplus_mpython_v3.menu.PartitionScheme.app3M_fat9M_16MB.upload.maximum_size=3145728
@@ -173,9 +178,6 @@ labplus_mpython_v3.menu.PartitionScheme.esp_sr_16.build.partitions=esp_sr_16
 labplus_mpython_v3.menu.PartitionScheme.custom=Custom
 labplus_mpython_v3.menu.PartitionScheme.custom.build.partitions=
 labplus_mpython_v3.menu.PartitionScheme.custom.upload.maximum_size=16777216
-labplus_mpython_v3.menu.PartitionScheme.mpython_16MiB=16M mpython v3
-labplus_mpython_v3.menu.PartitionScheme.mpython_16MiB.build.partitions=mpython_v3_16MiB
-labplus_mpython_v3.menu.PartitionScheme.mpython_16MiB.upload.maximum_size=3145728
 
 labplus_mpython_v3.menu.CPUFreq.240=240MHz (WiFi)
 labplus_mpython_v3.menu.CPUFreq.240.build.f_cpu=240000000L
