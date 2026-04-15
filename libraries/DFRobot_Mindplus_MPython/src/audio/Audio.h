@@ -28,14 +28,17 @@ public:
     bool startRecord(const char *path,
                      uint32_t sampleRate = 16000,
                      uint8_t bitsPerSample = 16,
-                     uint8_t channels = 1,
-                     fs::FS *fs = &LittleFS,
-                     const char *partitionLabel = "lfs2");
+                     uint8_t channels = 1);
+    bool startRecord(const char *path,
+                     uint32_t sampleRate,
+                     uint8_t bitsPerSample,
+                     uint8_t channels,
+                     uint32_t durationMs);
     size_t recordChunk(size_t maxBytes = 2048);
     void stopRecord();
     bool recording() const;
 
-    bool playFile(const char *path, fs::FS *fs = &LittleFS, const char *partitionLabel = "lfs2");
+    bool playFile(const char *path);
     bool playUrl(const char *url);
     void stopPlay();
     bool playing() const;
@@ -43,7 +46,7 @@ public:
 private:
     static constexpr int I2C_PORT = 0;
     static constexpr int I2S_PORT = 0;
-    static constexpr uint8_t DEFAULT_VOLUME = 70;
+    static constexpr uint8_t DEFAULT_VOLUME = 100;
 
     const audio_codec_gpio_if_t *_gpioIf;
     const audio_codec_ctrl_if_t *_ctrlIf;
@@ -80,7 +83,10 @@ private:
     bool finalizeWavHeader();
 
     esp_audio_simple_dec_type_t getDecoderType(const char *path);
+    void configureSimpleDecoder(esp_audio_simple_dec_cfg_t &cfg, uint8_t *storage, size_t storageSize) const;
     bool playStream(Stream &stream, esp_audio_simple_dec_type_t type);
+    bool playWavFile(File &file);
+    bool playMp3File(File &file);
 };
 
 #endif

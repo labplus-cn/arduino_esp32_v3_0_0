@@ -189,6 +189,12 @@ static int _i2s_drv_enable(i2s_data_t *i2s_data, bool playback, bool enable)
     if (channel == NULL) {
         return ESP_CODEC_DEV_NOT_FOUND;
     }
+    if (enable == false) {
+        if ((playback && i2s_data->out_enable == false) ||
+            (playback == false && i2s_data->in_enable == false)) {
+            return ESP_CODEC_DEV_OK;
+        }
+    }
     int ret;
     if (enable) {
         ret = i2s_channel_enable(channel);

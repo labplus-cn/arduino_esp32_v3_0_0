@@ -268,6 +268,8 @@ int esp_codec_dev_read(esp_codec_dev_handle_t handle, void *data, int len)
 int esp_codec_dev_write(esp_codec_dev_handle_t handle, void *data, int len)
 {
     codec_dev_t *dev = (codec_dev_t *) handle;
+    ESP_LOGI(TAG, "write enter handle=%p dev=%p data=%p len=%d out_open=%d data_if=%p sw_vol=%p",
+             handle, dev, data, len, dev ? dev->output_opened : -1, dev ? dev->data_if : NULL, dev ? dev->sw_vol : NULL);
     if (dev == NULL || data == NULL) {
         return ESP_CODEC_DEV_INVALID_ARG;
     }
@@ -278,9 +280,14 @@ int esp_codec_dev_write(esp_codec_dev_handle_t handle, void *data, int len)
     if (data_if->write) {
         // Soft volume process firstly
         if (dev->sw_vol) {
+            ESP_LOGI(TAG, "write sw_vol process begin len=%d", len);
             dev->sw_vol->process(dev->sw_vol, (uint8_t *) data, len, (uint8_t *) data, len);
+            ESP_LOGI(TAG, "write sw_vol process end len=%d", len);
         }
-        return data_if->write(data_if, (uint8_t *) data, len);
+        ESP_LOGI(TAG, "write data_if begin fn=%p len=%d", data_if->write, len);
+        int ret = data_if->write(data_if, (uint8_t *) data, len);
+        ESP_LOGI(TAG, "write data_if end ret=%d len=%d", ret, len);
+        return ret;
     }
     return ESP_CODEC_DEV_NOT_SUPPORT;
 }
