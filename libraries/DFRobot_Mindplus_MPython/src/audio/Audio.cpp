@@ -12,7 +12,9 @@
 #include "audio/esp_codec_dev/interface/audio_codec_gpio_if.h"
 #include "audio/esp_codec_dev/interface/audio_codec_if.h"
 #include "audio/esp_audio_codec/include/decoder/esp_audio_dec_default.h"
+#include "audio/esp_audio_codec/include/decoder/esp_audio_dec_reg.h"
 #include "audio/esp_audio_codec/include/decoder/impl/esp_aac_dec.h"
+#include "audio/esp_audio_codec/include/decoder/impl/esp_mp3_dec.h"
 #include "audio/esp_audio_codec/include/simple_dec/esp_audio_simple_dec.h"
 #include "audio/esp_audio_codec/include/simple_dec/esp_audio_simple_dec_default.h"
 #include "audio/esp_audio_codec/include/simple_dec/impl/esp_m4a_dec.h"
@@ -503,6 +505,15 @@ void Audio::configureSimpleDecoder(esp_audio_simple_dec_cfg_t &cfg,
 }
 
 bool Audio::playStream(Stream &stream, esp_audio_simple_dec_type_t type) {
+  if (type == ESP_AUDIO_SIMPLE_DEC_TYPE_MP3) {
+    static const esp_audio_dec_ops_t mp3Ops = ESP_MP3_DEC_DEFAULT_OPS();
+    esp_audio_err_t reg = esp_audio_dec_register(ESP_AUDIO_TYPE_MP3, &mp3Ops);
+    if (reg != ESP_AUDIO_ERR_OK) {
+      AUDIO_LOG("playStream MP3 register failed: err=%d\n", (int)reg);
+      return false;
+    }
+  }
+
   if (type == ESP_AUDIO_SIMPLE_DEC_TYPE_NONE || (!_begun && !begin())) {
     AUDIO_LOG("playStream failed before start: type=%d, begun=%d\n", (int)type,
               _begun);
@@ -586,31 +597,47 @@ bool Audio::playStream(Stream &stream, esp_audio_simple_dec_type_t type) {
       raw.len -= raw.consumed;
 
       if (frame.decoded_size > 0) {
+        size_t writeSize = frame.decoded_size;
+        uint8_t *writeBuffer = outputBuffer;
+        uint8_t bitsPerSample = info.bits_per_sample;
+        uint8_t channels = info.channel ? info.channel : 2;
+
         if (!codecOpened) {
           if (esp_audio_simple_dec_get_info(decoder, &info) != ESP_AUDIO_ERR_OK) {
             AUDIO_LOGLN("playStream waiting decoder info");
             continue;
           }
 
-          uint8_t channels = info.channel ? info.channel : 2;
+          bitsPerSample = info.bits_per_sample;
+          channels = info.channel ? info.channel : 2;
+          if ((bitsPerSample == 1 || bitsPerSample == 2) &&
+              (channels == 8 || channels == 16 || channels == 24 ||
+               channels == 32)) {
+            uint8_t swapped = bitsPerSample;
+            bitsPerSample = channels;
+            channels = swapped;
+          }
           AUDIO_LOG("playStream decoded info: sr=%lu bits=%u ch=%u\n",
                     (unsigned long)info.sample_rate,
-                    info.bits_per_sample,
+                    bitsPerSample,
                     channels);
-          if (!openCodec(info.sample_rate, info.bits_per_sample, channels, false,
+          if (!openCodec(info.sample_rate, bitsPerSample, channels, false,
                          true)) {
             AUDIO_LOGLN("playStream failed: openCodec for playback failed");
             ok = false;
             _playing = false;
             break;
           }
+          info.bits_per_sample = bitsPerSample;
+          info.channel = channels;
           codecOpened = true;
         }
 
-        if (esp_codec_dev_write(_codecDev, outputBuffer, frame.decoded_size) !=
+        if (esp_codec_dev_write(_codecDev, writeBuffer, writeSize) !=
             ESP_CODEC_DEV_OK) {
-          AUDIO_LOG("playStream write failed: decoded_size=%lu\n",
-                    (unsigned long)frame.decoded_size);
+          AUDIO_LOG("playStream write failed: decoded_size=%lu write_size=%lu\n",
+                    (unsigned long)frame.decoded_size,
+                    (unsigned long)writeSize);
           ok = false;
           _playing = false;
           break;
@@ -852,9 +879,6 @@ bool Audio::playFile(const char *path) {
   if (type == ESP_AUDIO_SIMPLE_DEC_TYPE_WAV) {
     AUDIO_LOGLN("playFile using direct WAV playback path");
     ok = playWavFile(file);
-  } else if (type == ESP_AUDIO_SIMPLE_DEC_TYPE_MP3) {
-    AUDIO_LOGLN("playFile using direct MP3 playback path");
-    ok = playMp3File(file);
   } else {
     AUDIO_LOGLN("playFile using simple decoder path");
     ok = playStream(file, type);
