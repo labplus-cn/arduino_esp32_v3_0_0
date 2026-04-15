@@ -4,10 +4,10 @@ namespace {
 // 要播放的本地音频文件路径。
 // 请先确认这个文件已经保存在 LittleFS 的 lfs2 分区中。
 // constexpr char kAudioFile[] = "/record.wav";
-constexpr char kAudioFile[] = "test.mp3";
+constexpr char kAudioFile[] = "/test.mp3";
 
 // 播放音量，范围通常为 0~100。
-constexpr uint8_t kPlayVolume = 80;
+constexpr uint8_t kPlayVolume = 60;
 }  // namespace
 
 void setup() {

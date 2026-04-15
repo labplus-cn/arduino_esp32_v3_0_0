@@ -9,6 +9,7 @@
 #include "button/Button.h"
 #include "touch/TouchPad.h"
 #include "fs/USBDISK.h"
+#include "wifi/WiFi.h"
 
 class MPython {
 public:
@@ -29,6 +30,7 @@ public:
     TouchPad touchPadO;
     TouchPad touchPadN;
     USBDISK usbDisk;
+    MPythonWiFi wifi;
 };
 
 extern MPython mPython;
