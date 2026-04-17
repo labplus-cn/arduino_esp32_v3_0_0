@@ -4,6 +4,9 @@
 #include "Arduino.h"
 #include "FS.h"
 #include <LittleFS.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <freertos/task.h>
 #include "audio/esp_codec_dev/include/esp_codec_dev.h"
 #include "audio/esp_codec_dev/include/esp_codec_dev_defaults.h"
 #include "audio/esp_codec_dev/interface/audio_codec_gpio_if.h"
@@ -14,8 +17,18 @@
 #include "audio/esp_audio_codec/include/simple_dec/esp_audio_simple_dec_default.h"
 #include "audio/esp_audio_codec/include/simple_dec/esp_audio_simple_dec.h"
 
+class NetworkClient;
+
 class Audio {
 public:
+    enum PlayState : uint8_t {
+        PLAY_STATE_IDLE = 0,
+        PLAY_STATE_PLAYING,
+        PLAY_STATE_PAUSED,
+        PLAY_STATE_STOPPED,
+        PLAY_STATE_ERROR,
+    };
+
     Audio();
     ~Audio();
 
@@ -34,14 +47,15 @@ public:
                      uint8_t bitsPerSample,
                      uint8_t channels,
                      uint32_t durationMs);
-    size_t recordChunk(size_t maxBytes = 2048);
     void stopRecord();
     bool recording() const;
 
-    bool playFile(const char *path);
-    bool playUrl(const char *url);
-    void stopPlay();
-    bool playing() const;
+    bool play(const char *path);
+    bool pause();
+    bool resume();
+    void stop();
+    PlayState state() const;
+    const char *stateName() const;
 
 private:
     static constexpr int I2C_PORT = 0;
@@ -56,9 +70,29 @@ private:
 
     bool _begun;
     bool _recording;
-    bool _playing;
     bool _decoderRegistered;
     bool _simpleDecoderRegistered;
+
+    volatile PlayState _playState;
+    volatile bool _playStopRequested;
+    volatile bool _playPauseRequested;
+    TaskHandle_t _playReadTaskHandle;
+    TaskHandle_t _playDecodeTaskHandle;
+    void *_playContext;
+    String _playSource;
+    bool _playSourceIsUrl;
+
+    volatile bool _recordStopRequested;
+    volatile bool _recordCaptureDone;
+    volatile bool _recordWriterDone;
+    TaskHandle_t _recordCaptureTaskHandle;
+    TaskHandle_t _recordWriterTaskHandle;
+    uint8_t *_recordBuffer;
+    size_t _recordBufferSize;
+    volatile size_t _recordBufferHead;
+    volatile size_t _recordBufferTail;
+    volatile size_t _recordBufferCount;
+    SemaphoreHandle_t _recordBufferLock;
 
     uint8_t _volume;
     float _micGain;
@@ -83,10 +117,23 @@ private:
     bool finalizeWavHeader();
 
     esp_audio_simple_dec_type_t getDecoderType(const char *path);
+    esp_audio_simple_dec_type_t getDecoderTypeFromContentType(const String &contentType) const;
     void configureSimpleDecoder(esp_audio_simple_dec_cfg_t &cfg, uint8_t *storage, size_t storageSize) const;
-    bool playStream(Stream &stream, esp_audio_simple_dec_type_t type);
-    bool playWavFile(File &file);
-    bool playMp3File(File &file);
+    bool waitWhilePaused();
+    void setPlayState(PlayState state);
+    String normalizeFsPath(const char *path) const;
+    bool isHttpSource(const char *path) const;
+    bool initRecordBuffer(size_t bufferSize);
+    void deinitRecordBuffer();
+    size_t recordBufferWrite(const uint8_t *src, size_t len);
+    size_t recordBufferRead(uint8_t *dst, size_t len);
+
+    static void playDecodeTaskEntry(void *arg);
+    static void recordCaptureTaskEntry(void *arg);
+    static void recordWriterTaskEntry(void *arg);
+    void playDecodeTask();
+    void recordCaptureTask();
+    void recordWriterTask();
 };
 
 #endif
