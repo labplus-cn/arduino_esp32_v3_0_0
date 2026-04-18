@@ -1,129 +1,258 @@
-# Syntax Coloring Map for DFRobot_Mindplus_MPython
-
-#######################################
-# Datatypes (KEYWORD1)
-#######################################
-mPython	KEYWORD1
-Accelerometer	KEYWORD1
-Button	KEYWORD1
-TouchPad	KEYWORD1
-AnalogPin	KEYWORD1
-RGB	KEYWORD1
-Buzz	KEYWORD1
-MPythonWiFi	KEYWORD1
-
-#######################################
-# Constants (KEYWORD2)
-#######################################
-Whole	KEYWORD2
-Half	KEYWORD2
-Quarter	KEYWORD2
-Eighth	KEYWORD2
-Sixteenth	KEYWORD2
-Double	KEYWORD2
-Breve	KEYWORD2
-
-BEAT_1	KEYWORD2
-BEAT_1_2	KEYWORD2
-BEAT_1_4	KEYWORD2
-BEAT_3_4	KEYWORD2
-BEAT_3_2	KEYWORD2
-BEAT_2	KEYWORD2
-BEAT_3	KEYWORD2
-BEAT_4	KEYWORD2
-
-DADADADUM	KEYWORD2
-ENTERTAINER	KEYWORD2
-PRELUDE	KEYWORD2
-ODE	KEYWORD2
-NYAN	KEYWORD2
-RINGTONE	KEYWORD2
-FUNK	KEYWORD2
-BLUES	KEYWORD2
-BIRTHDAY	KEYWORD2
-WEDDING	KEYWORD2
-FUNERAL	KEYWORD2
-PUNCHLINE	KEYWORD2
-BADDY	KEYWORD2
-CHASE	KEYWORD2
-BA_DING	KEYWORD2
-WAWAWAWAA	KEYWORD2
-JUMP_UP	KEYWORD2
-JUMP_DOWN	KEYWORD2
-POWER_UP	KEYWORD2
-POWER_DOWN	KEYWORD2
-
-Once	KEYWORD2
-Forever	KEYWORD2
-OnceInBackground	KEYWORD2
-ForeverInBackground	KEYWORD2
-
-Shake	KEYWORD2
-ScreenUp	KEYWORD2
-ScreenDown	KEYWORD2
-TiltLeft	KEYWORD2
-TiltRight	KEYWORD2
-TiltForward	KEYWORD2
-TiltBack	KEYWORD2
-GestureNone	KEYWORD2
-
-#######################################
-# Methods and Functions (FUNCTION)
-#######################################
-begin	FUNCTION
-setTouchThreshold	FUNCTION
-init	FUNCTION
-getX	FUNCTION
-getY	FUNCTION
-getZ	FUNCTION
-setOffset	FUNCTION
-getStrength	FUNCTION
-onGesture	FUNCTION
-isGesture	FUNCTION
-isPressed	FUNCTION
-setPressedCallback	FUNCTION
-setUnPressedCallback	FUNCTION
-isTouched	FUNCTION
-setTouchedCallback	FUNCTION
-setUnTouchedCallback	FUNCTION
-read	FUNCTION
-write	FUNCTION
-brightness	FUNCTION
-on	FUNCTION
-off	FUNCTION
-isOn	FUNCTION
-setTicksTempo	FUNCTION
-freq	FUNCTION
-redirect	FUNCTION
-stop	FUNCTION
-play	FUNCTION
-connect	FUNCTION
-disconnect	FUNCTION
-status	FUNCTION
-isConnected	FUNCTION
-localIP	FUNCTION
-ssid	FUNCTION
-macAddress	FUNCTION
-rssi	FUNCTION
-
-#######################################
-# Global Variables (VARIABLE)
-#######################################
-// mPython is now a class, not a variable
-buttonA	VARIABLE
-buttonB	VARIABLE
-buttonAB	VARIABLE
-pixels	VARIABLE
-display	VARIABLE
-touchPadP	VARIABLE
-touchPadY	VARIABLE
-touchPadT	VARIABLE
-touchPadH	VARIABLE
-touchPadO	VARIABLE
-touchPadN	VARIABLE
-buzz	VARIABLE
-light	VARIABLE
-sound	VARIABLE
-rgb	VARIABLE
-wifi	VARIABLE
-accelerometer	VARIABLE
+# Syntax Coloring Map for DFRobot_Mindplus_MPython
+
+
+
+#######################################
+
+# Datatypes (KEYWORD1)
+
+#######################################
+
+mPython	KEYWORD1
+
+Accelerometer	KEYWORD1
+
+Button	KEYWORD1
+
+TouchPad	KEYWORD1
+
+AnalogPin	KEYWORD1
+
+RGB	KEYWORD1
+
+Buzz	KEYWORD1
+
+MPythonWiFi	KEYWORD1
+
+
+
+#######################################
+
+# Constants (KEYWORD2)
+
+#######################################
+
+Whole	KEYWORD2
+
+Half	KEYWORD2
+
+Quarter	KEYWORD2
+
+Eighth	KEYWORD2
+
+Sixteenth	KEYWORD2
+
+Double	KEYWORD2
+
+Breve	KEYWORD2
+
+
+
+BEAT_1	KEYWORD2
+
+BEAT_1_2	KEYWORD2
+
+BEAT_1_4	KEYWORD2
+
+BEAT_3_4	KEYWORD2
+
+BEAT_3_2	KEYWORD2
+
+BEAT_2	KEYWORD2
+
+BEAT_3	KEYWORD2
+
+BEAT_4	KEYWORD2
+
+
+
+DADADADUM	KEYWORD2
+
+ENTERTAINER	KEYWORD2
+
+PRELUDE	KEYWORD2
+
+ODE	KEYWORD2
+
+NYAN	KEYWORD2
+
+RINGTONE	KEYWORD2
+
+FUNK	KEYWORD2
+
+BLUES	KEYWORD2
+
+BIRTHDAY	KEYWORD2
+
+WEDDING	KEYWORD2
+
+FUNERAL	KEYWORD2
+
+PUNCHLINE	KEYWORD2
+
+BADDY	KEYWORD2
+
+CHASE	KEYWORD2
+
+BA_DING	KEYWORD2
+
+WAWAWAWAA	KEYWORD2
+
+JUMP_UP	KEYWORD2
+
+JUMP_DOWN	KEYWORD2
+
+POWER_UP	KEYWORD2
+
+POWER_DOWN	KEYWORD2
+
+
+
+Once	KEYWORD2
+
+Forever	KEYWORD2
+
+OnceInBackground	KEYWORD2
+
+ForeverInBackground	KEYWORD2
+
+
+
+Shake	KEYWORD2
+
+ScreenUp	KEYWORD2
+
+ScreenDown	KEYWORD2
+
+TiltLeft	KEYWORD2
+
+TiltRight	KEYWORD2
+
+TiltForward	KEYWORD2
+
+TiltBack	KEYWORD2
+
+GestureNone	KEYWORD2
+
+
+
+#######################################
+
+# Methods and Functions (FUNCTION)
+
+#######################################
+
+begin	FUNCTION
+
+setTouchThreshold	FUNCTION
+
+init	FUNCTION
+
+getX	FUNCTION
+
+getY	FUNCTION
+
+getZ	FUNCTION
+
+setOffset	FUNCTION
+
+getStrength	FUNCTION
+
+onGesture	FUNCTION
+
+isGesture	FUNCTION
+
+isPressed	FUNCTION
+
+setPressedCallback	FUNCTION
+
+setUnPressedCallback	FUNCTION
+
+isTouched	FUNCTION
+
+setTouchedCallback	FUNCTION
+
+setUnTouchedCallback	FUNCTION
+
+read	FUNCTION
+
+write	FUNCTION
+
+brightness	FUNCTION
+
+on	FUNCTION
+
+off	FUNCTION
+
+isOn	FUNCTION
+
+setTicksTempo	FUNCTION
+
+freq	FUNCTION
+
+redirect	FUNCTION
+
+stop	FUNCTION
+
+play	FUNCTION
+
+connect	FUNCTION
+
+disconnect	FUNCTION
+
+status	FUNCTION
+
+isConnected	FUNCTION
+
+localIP	FUNCTION
+
+ssid	FUNCTION
+
+macAddress	FUNCTION
+
+rssi	FUNCTION
+
+
+
+#######################################
+
+# Global Variables (VARIABLE)
+
+#######################################
+
+// mPython is now a class, not a variable
+
+buttonA	VARIABLE
+
+buttonB	VARIABLE
+
+buttonAB	VARIABLE
+
+pixels	VARIABLE
+
+display	VARIABLE
+
+touchPadP	VARIABLE
+
+touchPadY	VARIABLE
+
+touchPadT	VARIABLE
+
+touchPadH	VARIABLE
+
+touchPadO	VARIABLE
+
+touchPadN	VARIABLE
+
+buzz	VARIABLE
+
+light	VARIABLE
+
+sound	VARIABLE
+
+rgb	VARIABLE
+
+wifi	VARIABLE
+
+accelerometer	VARIABLE
+
