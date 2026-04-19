@@ -58,6 +58,10 @@ public:
     PlayState state() const;
     const char *stateName() const;
 
+    // 语音合成功能
+    bool ttsInit();
+    bool textToSpeech(const char *text);
+
 private:
     static constexpr int I2C_PORT = 0;
     static constexpr int I2S_PORT = 0;
@@ -126,6 +130,14 @@ private:
     void playDecodeTask();
     void recordCaptureTask();
     void recordWriterTask();
+
+    // 语音合成相关（句柄类型见 esp-sr esp_tts_handle_t，此处用 void* 避免在公共头中包含 TTS 头）
+    void *_ttsHandle;
+    volatile bool _ttsInitialized;
+    SemaphoreHandle_t _ttsSemaphore;
+
+    // 语音合成任务
+    static void ttsTask(void *arg);
 };
 
 #endif

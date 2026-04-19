@@ -21,6 +21,12 @@
 #include "audio/esp_audio_codec/include/simple_dec/impl/esp_m4a_dec.h"
 #include "audio/esp_audio_codec/include/simple_dec/impl/esp_ts_dec.h"
 
+// 语音合成（esp-sr）：仅在 cpp 中包含；头文件需已修补 C++ 兼容性（见 esp_tts.h / esp_tts_player.h）
+extern "C" {
+#include "esp_tts.h"
+#include "esp_tts_voice_template.h"
+}
+
 // Align HTTP streaming behavior with Espressif esp-gmf `esp_gmf_io_http.c`:
 // timeout 30s, follow redirects, accept 200/206; gzip body is handled there via
 // gzip_miniz 鈥?here we request identity encoding and reject gzip if still present.
@@ -357,9 +363,150 @@ Audio::Audio()
       _recordDataBytes(0),
       _recordSampleRate(16000),
       _recordBitsPerSample(16),
-      _recordChannels(1) {}
+      _recordChannels(1),
+      _ttsHandle(nullptr),
+      _ttsInitialized(false),
+      _ttsSemaphore(nullptr) {}
 
 Audio::~Audio() { end(); }
+
+// 语音合成初始化
+bool Audio::ttsInit() {
+  if (_ttsInitialized) {
+    return true;
+  }
+  
+  // 查找 voice_data 分区
+  const esp_partition_t *part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "voice_data");
+  if (!part) {
+    AUDIO_LOGLN("ttsInit failed: voice_data partition not found");
+    return false;
+  }
+  
+  // 映射语音数据
+  const void *voicedata;
+  esp_partition_mmap_handle_t mmap;
+  esp_err_t err = esp_partition_mmap(part, 0, part->size, ESP_PARTITION_MMAP_DATA, (const void **)&voicedata, &mmap);
+  if (err != ESP_OK) {
+    AUDIO_LOGLN("ttsInit failed: mmap failed");
+    return false;
+  }
+  
+  // 初始化语音
+  esp_tts_voice_t *voice = esp_tts_voice_set_init(&esp_tts_voice_template, (int16_t *)voicedata);
+  if (!voice) {
+    AUDIO_LOGLN("ttsInit failed: voice init failed");
+    return false;
+  }
+  
+  // 创建 TTS 句柄
+  _ttsHandle = esp_tts_create(voice);
+  if (!_ttsHandle) {
+    AUDIO_LOGLN("ttsInit failed: esp_tts_create failed");
+    return false;
+  }
+  
+  // 创建信号量
+  _ttsSemaphore = xSemaphoreCreateBinary();
+  if (!_ttsSemaphore) {
+    AUDIO_LOGLN("ttsInit failed: semaphore create failed");
+    esp_tts_destroy(_ttsHandle);
+    _ttsHandle = nullptr;
+    return false;
+  }
+  
+  xSemaphoreGive(_ttsSemaphore);
+  _ttsInitialized = true;
+  return true;
+}
+
+// 文本转语音
+bool Audio::textToSpeech(const char *text) {
+  if (!_ttsInitialized) {
+    AUDIO_LOGLN("textToSpeech failed: TTS not initialized");
+    return false;
+  }
+  
+  if (!text || strlen(text) == 0) {
+    AUDIO_LOGLN("textToSpeech failed: empty text");
+    return false;
+  }
+  
+  // 创建参数结构体
+  struct TtsTaskParams {
+    Audio *audio;
+    char text[256];
+  };
+  
+  TtsTaskParams *params = (TtsTaskParams *)malloc(sizeof(TtsTaskParams));
+  if (!params) {
+    AUDIO_LOGLN("textToSpeech failed: malloc failed");
+    return false;
+  }
+  
+  params->audio = this;
+  strncpy(params->text, text, sizeof(params->text) - 1);
+  params->text[sizeof(params->text) - 1] = '\0';
+  
+  // 创建 TTS 任务
+  if (xTaskCreatePinnedToCore(ttsTask, "tts_task", 4 * 1024, (void *)params, 5, nullptr, 0) != pdPASS) {
+    AUDIO_LOGLN("textToSpeech failed: task create failed");
+    free(params);
+    return false;
+  }
+  
+  return true;
+}
+
+// 语音合成任务
+void Audio::ttsTask(void *arg) {
+  struct TtsTaskParams {
+    Audio *audio;
+    char text[256];
+  };
+  
+  TtsTaskParams *params = (TtsTaskParams *)arg;
+  if (!params || !params->audio) {
+    vTaskDelete(nullptr);
+    return;
+  }
+  
+  Audio *audio = params->audio;
+  const char *text = params->text;
+  
+  // 等待信号量
+  if (xSemaphoreTake(audio->_ttsSemaphore, portMAX_DELAY) != pdTRUE) {
+    free(params);
+    vTaskDelete(nullptr);
+    return;
+  }
+  
+  // 打开音频设备
+  if (!audio->openPlayCodec(16000, 16, 1)) {
+    AUDIO_LOGLN("ttsTask failed: openPlayCodec failed");
+    xSemaphoreGive(audio->_ttsSemaphore);
+    free(params);
+    vTaskDelete(nullptr);
+    return;
+  }
+  
+  if (esp_tts_parse_chinese(audio->_ttsHandle, text)) {
+      int len;
+      do {
+          short *pcm = esp_tts_stream_play(audio->_ttsHandle, &len, 0);
+          if(len > 0){
+              esp_codec_dev_write(audio->_playDev, (int8_t *)pcm, len * 2);
+          }
+      } while (len > 0);
+  }
+  
+  // 清理资源
+  esp_tts_stream_reset(audio->_ttsHandle);
+  audio->closePlayCodec();
+  xSemaphoreGive(audio->_ttsSemaphore);
+  free(params);
+  vTaskDelete(nullptr);
+}
 
 bool Audio::mountFS(fs::FS *fs, const char *label) {
   return fs && (fs != &LittleFS || LittleFS.begin(true, "/littlefs", 5, label));
@@ -529,6 +676,18 @@ bool Audio::begin() {
 void Audio::end() {
   stop();
   stopRecord();
+  
+  // 清理语音合成资源
+  if (_ttsHandle) {
+    esp_tts_destroy(_ttsHandle);
+    _ttsHandle = nullptr;
+  }
+  if (_ttsSemaphore) {
+    vSemaphoreDelete(_ttsSemaphore);
+    _ttsSemaphore = nullptr;
+  }
+  _ttsInitialized = false;
+  
   deinitCodec();
   _begun = false;
 }
