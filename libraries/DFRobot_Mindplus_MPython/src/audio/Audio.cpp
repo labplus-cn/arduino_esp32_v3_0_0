@@ -21,10 +21,14 @@
 #include "audio/esp_audio_codec/include/simple_dec/impl/esp_m4a_dec.h"
 #include "audio/esp_audio_codec/include/simple_dec/impl/esp_ts_dec.h"
 
+#include "audio/esp_sr_afe_api.h"
+#include "esp_err.h"
+#include <cstring>
+
 // 语音合成（esp-sr）：仅在 cpp 中包含；头文件需已修补 C++ 兼容性（见 esp_tts.h / esp_tts_player.h）
 extern "C" {
-#include "esp_tts.h"
-#include "esp_tts_voice_template.h"
+#include "audio/esp-sr/esp-tts/esp_tts_chinese/include/esp_tts.h"
+#include "audio/esp-sr/esp-tts/esp_tts_chinese/include/esp_tts_voice_template.h"
 }
 
 // Align HTTP streaming behavior with Espressif esp-gmf `esp_gmf_io_http.c`:
@@ -69,6 +73,37 @@ constexpr size_t NET_RX_CACHE_BYTES = 64 * 1024;
 constexpr uint32_t NET_RX_WAIT_MS = 2000;
 constexpr uint32_t NET_PREFILL_BYTES = 16 * 1024;
 constexpr uint32_t PLAY_STOP_WAIT_MS = 3000;
+
+constexpr EventBits_t kSrFeedDone = (1 << 0);
+constexpr EventBits_t kSrDetectDone = (1 << 1);
+constexpr EventBits_t kSrAllDone = kSrFeedDone | kSrDetectDone;
+
+// AFE interface layout compatible with ESP-SR v1.x binaries bundled in Arduino ESP32 libs.
+// We intentionally use this layout to avoid function-pointer offset mismatch when headers and
+// linked binary are from different esp-sr releases.
+typedef struct {
+  esp_afe_sr_data_t *(*create_from_config)(afe_config_t *afe_config);
+  int (*feed)(esp_afe_sr_data_t *afe, const int16_t *in);
+  afe_fetch_result_t *(*fetch)(esp_afe_sr_data_t *afe);
+  int (*reset_buffer)(esp_afe_sr_data_t *afe);
+  int (*get_feed_chunksize)(esp_afe_sr_data_t *afe);
+  int (*get_fetch_chunksize)(esp_afe_sr_data_t *afe);
+  int (*get_total_channel_num)(esp_afe_sr_data_t *afe);
+  int (*get_channel_num)(esp_afe_sr_data_t *afe);
+  int (*get_samp_rate)(esp_afe_sr_data_t *afe);
+  int (*set_wakenet)(esp_afe_sr_data_t *afe, char *model_name);
+  int (*disable_wakenet)(esp_afe_sr_data_t *afe);
+  int (*enable_wakenet)(esp_afe_sr_data_t *afe);
+  int (*disable_aec)(esp_afe_sr_data_t *afe);
+  int (*enable_aec)(esp_afe_sr_data_t *afe);
+  int (*disable_se)(esp_afe_sr_data_t *afe);
+  int (*enable_se)(esp_afe_sr_data_t *afe);
+  void (*destroy)(esp_afe_sr_data_t *afe);
+} afe_iface_legacy_t;
+
+static inline afe_iface_legacy_t *asLegacyAfeIface(void *p) {
+  return reinterpret_cast<afe_iface_legacy_t *>(p);
+}
 
 bool wr16(File &file, uint16_t value) {
   uint8_t bytes[2] = {uint8_t(value), uint8_t(value >> 8)};
@@ -366,7 +401,22 @@ Audio::Audio()
       _recordChannels(1),
       _ttsHandle(nullptr),
       _ttsInitialized(false),
-      _ttsSemaphore(nullptr) {}
+      _ttsSemaphore(nullptr),
+      _srAfeIface(nullptr),
+      _srAfeData(nullptr),
+      _srModels(nullptr),
+      _srTaskFlag(0),
+      _srLatestCommandId(0),
+      _srWakeupFlag(0),
+      _srMultinetReady(false),
+      _srMultinet(nullptr),
+      _srMnModel(nullptr),
+      _srMnTimeoutMs(6000),
+      _srLoadFromSdkconfig(false),
+      _srDoneEvent(nullptr),
+      _srFeedTaskHandle(nullptr),
+      _srDetectTaskHandle(nullptr),
+      _srCommandsAllocated(false) {}
 
 Audio::~Audio() { end(); }
 
@@ -422,6 +472,10 @@ bool Audio::ttsInit() {
 
 // 文本转语音
 bool Audio::textToSpeech(const char *text) {
+  if (_srTaskFlag) {
+    AUDIO_LOGLN("textToSpeech skipped: SR is running");
+    return false;
+  }
   if (!_ttsInitialized) {
     AUDIO_LOGLN("textToSpeech failed: TTS not initialized");
     return false;
@@ -481,7 +535,6 @@ void Audio::ttsTask(void *arg) {
     return;
   }
   
-  // 打开音频设备
   if (!audio->openPlayCodec(16000, 16, 1)) {
     AUDIO_LOGLN("ttsTask failed: openPlayCodec failed");
     xSemaphoreGive(audio->_ttsSemaphore);
@@ -676,7 +729,8 @@ bool Audio::begin() {
 void Audio::end() {
   stop();
   stopRecord();
-  
+  speechRecognitionEnd();
+
   // 清理语音合成资源
   if (_ttsHandle) {
     esp_tts_destroy(_ttsHandle);
@@ -889,6 +943,11 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
 
   if (!normalizedPath.length() || isHttpSource(normalizedPath.c_str())) {
     AUDIO_LOGLN("startRecord failed: invalid record path");
+    return false;
+  }
+
+  if (_srTaskFlag) {
+    AUDIO_LOGLN("startRecord failed: speech recognition is active");
     return false;
   }
 
@@ -1456,4 +1515,357 @@ const char *Audio::stateName() const {
     default: return "unknown";
   }
 }
+
+// ---------------------------------------------------------------------------
+// 离线语音识别（esp-sr：WakeNet + MultiNet），逻辑参考 temp/audio/src/sr/sc.c
+// ---------------------------------------------------------------------------
+
+void Audio::srFeedTaskEntry(void *arg) {
+  static_cast<Audio *>(arg)->srFeedTask();
+  vTaskDelete(nullptr);
+}
+
+void Audio::srDetectTaskEntry(void *arg) {
+  static_cast<Audio *>(arg)->srDetectTask();
+  vTaskDelete(nullptr);
+}
+
+void Audio::srFeedTask() {
+  afe_iface_legacy_t *iface = asLegacyAfeIface(_srAfeIface);
+  esp_afe_sr_data_t *afe = reinterpret_cast<esp_afe_sr_data_t *>(_srAfeData);
+  int chunk = iface->get_feed_chunksize(afe);
+  int nch = iface->get_total_channel_num(afe);
+  // Compatibility guard for mixed esp-sr header/lib versions.
+  if (chunk < 64 || chunk > 4096) chunk = 512;
+  if (nch <= 0 || nch > 4) nch = 1;
+  size_t bytes = (size_t)chunk * (size_t)nch * sizeof(int16_t);
+  int16_t *buf = reinterpret_cast<int16_t *>(malloc(bytes));
+  if (!buf) {
+    AUDIO_LOGLN("SR feed: malloc failed");
+    if (_srDoneEvent) xEventGroupSetBits(_srDoneEvent, kSrFeedDone);
+    return;
+  }
+  while (_srTaskFlag) {
+    if (esp_codec_dev_read(_recDev, buf, (int)bytes) != ESP_CODEC_DEV_OK) {
+      vTaskDelay(pdMS_TO_TICKS(5));
+      continue;
+    }
+    iface->feed(afe, buf);
+  }
+  free(buf);
+  if (_srDoneEvent) xEventGroupSetBits(_srDoneEvent, kSrFeedDone);
+}
+
+void Audio::srDetectTask() {
+  afe_iface_legacy_t *afe = asLegacyAfeIface(_srAfeIface);
+  esp_afe_sr_data_t *afe_data = reinterpret_cast<esp_afe_sr_data_t *>(_srAfeData);
+  srmodel_list_t *models = reinterpret_cast<srmodel_list_t *>(_srModels);
+  esp_mn_iface_t *multinet = nullptr;
+  model_iface_data_t *model_data = nullptr;
+
+  int afe_chunksize = afe->get_fetch_chunksize(afe_data);
+  char *mn_name = esp_srmodel_filter(models, ESP_MN_PREFIX, ESP_MN_CHINESE);
+  if (!mn_name) {
+    AUDIO_LOGLN("SR detect: no Chinese multinet model");
+    goto finish;
+  }
+  multinet = esp_mn_handle_from_name(mn_name);
+  if (!multinet) {
+    AUDIO_LOGLN("SR detect: esp_mn_handle_from_name failed");
+    goto finish;
+  }
+  model_data = multinet->create(mn_name, (int)_srMnTimeoutMs);
+  if (!model_data) {
+    AUDIO_LOGLN("SR detect: multinet->create failed");
+    goto finish;
+  }
+  if (esp_mn_commands_alloc(multinet, model_data) != ESP_OK) {
+    AUDIO_LOGLN("SR detect: esp_mn_commands_alloc failed");
+    multinet->destroy(model_data);
+    model_data = nullptr;
+    goto finish;
+  }
+  _srCommandsAllocated = true;
+
+  if (_srLoadFromSdkconfig) {
+    esp_mn_commands_update_from_sdkconfig(multinet, model_data);
+    esp_mn_commands_clear();
+    esp_mn_commands_update();
+  }
+
+  {
+    int mu_chunksize = multinet->get_samp_chunksize(model_data);
+    if (mu_chunksize != afe_chunksize) {
+      AUDIO_LOG("SR detect: chunk mismatch afe=%d mn=%d\n", afe_chunksize, mu_chunksize);
+      // Compatibility path: some esp-sr binary/header combinations report an
+      // inconsistent fetch chunk size but still work with fetch()->data.
+      // Keep running instead of aborting SR startup.
+    }
+  }
+
+  _srMultinet = multinet;
+  _srMnModel = model_data;
+  _srMultinetReady = true;
+
+  AUDIO_LOGLN("SR detect: started");
+
+  while (_srTaskFlag) {
+    afe_fetch_result_t *res = afe->fetch(afe_data);
+    if (!res || res->ret_value == ESP_FAIL) {
+      AUDIO_LOGLN("SR detect: fetch error");
+      break;
+    }
+
+    if (res->wakeup_state == WAKENET_DETECTED) {
+      if (_srWakeupFlag == 0) {
+        multinet->clean(model_data);
+        afe->disable_wakenet(afe_data);
+        if (_srWakeupReplyTts.length() && _ttsInitialized) {
+          AUDIO_LOGLN("SR wake detected: skip TTS reply while SR is running");
+        }
+      }
+      _srWakeupFlag = 1;
+    } else if (res->wakeup_state == WAKENET_CHANNEL_VERIFIED) {
+      _srWakeupFlag = 1;
+    }
+
+    if (_srWakeupFlag == 1) {
+      esp_mn_state_t mn_state = multinet->detect(model_data, res->data);
+      if (mn_state == ESP_MN_STATE_DETECTING) {
+        continue;
+      }
+      if (mn_state == ESP_MN_STATE_DETECTED) {
+        esp_mn_results_t *mn_result = multinet->get_results(model_data);
+        if (mn_result && mn_result->num > 0) {
+          _srLatestCommandId = mn_result->command_id[0];
+          afe->enable_wakenet(afe_data);
+          _srWakeupFlag = 0;
+        }
+        continue;
+      }
+      if (mn_state == ESP_MN_STATE_TIMEOUT) {
+        afe->enable_wakenet(afe_data);
+        _srWakeupFlag = 0;
+        continue;
+      }
+    }
+  }
+
+  if (model_data && multinet) {
+    multinet->destroy(model_data);
+    model_data = nullptr;
+  }
+  if (_srCommandsAllocated) {
+    esp_mn_commands_free();
+    _srCommandsAllocated = false;
+  }
+  _srMultinet = nullptr;
+  _srMnModel = nullptr;
+  _srMultinetReady = false;
+
+finish:
+  if (_srDoneEvent) xEventGroupSetBits(_srDoneEvent, kSrDetectDone);
+}
+
+bool Audio::speechRecognitionDeinitInternal() {
+  if (_srAfeIface && _srAfeData) {
+    afe_iface_legacy_t *iface = asLegacyAfeIface(_srAfeIface);
+    esp_afe_sr_data_t *data = reinterpret_cast<esp_afe_sr_data_t *>(_srAfeData);
+    iface->destroy(data);
+  }
+  _srAfeIface = nullptr;
+  _srAfeData = nullptr;
+
+  if (_srCommandsAllocated) {
+    esp_mn_commands_free();
+    _srCommandsAllocated = false;
+  }
+  if (_srModels) {
+    esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
+    _srModels = nullptr;
+  }
+  _srMultinet = nullptr;
+  _srMnModel = nullptr;
+  closePlayCodec();
+  closeRecCodec();
+  if (_srDoneEvent) {
+    vEventGroupDelete(_srDoneEvent);
+    _srDoneEvent = nullptr;
+  }
+  _srWakeupReplyTts = "";
+  return true;
+}
+
+bool Audio::speechRecognitionBegin(const char *wakeupReplyTts,
+                                    uint16_t multinetTimeoutMs,
+                                    bool loadCommandsFromSdkconfig) {
+  if (_srAfeIface) return true;
+  if (_recording) {
+    AUDIO_LOGLN("SR begin: file recording active");
+    return false;
+  }
+  if ((!_begun && !begin()) || !_recDev) return false;
+
+  _srMnTimeoutMs = multinetTimeoutMs;
+  _srLoadFromSdkconfig = loadCommandsFromSdkconfig;
+  _srWakeupReplyTts = wakeupReplyTts ? wakeupReplyTts : "";
+  _srLatestCommandId = 0;
+  _srWakeupFlag = 0;
+  _srMultinetReady = false;
+  _srMultinet = nullptr;
+  _srMnModel = nullptr;
+  _srCommandsAllocated = false;
+
+  _srModels = esp_srmodel_init("model");
+  if (!_srModels) {
+    AUDIO_LOGLN("SR begin: esp_srmodel_init failed");
+    return false;
+  }
+  if (!esp_srmodel_filter(reinterpret_cast<srmodel_list_t *>(_srModels), ESP_WN_PREFIX,
+                          nullptr)) {
+    AUDIO_LOGLN("SR begin: no wakenet model");
+    esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
+    _srModels = nullptr;
+    return false;
+  }
+  if (!esp_srmodel_filter(reinterpret_cast<srmodel_list_t *>(_srModels), ESP_MN_PREFIX,
+                          ESP_MN_CHINESE)) {
+    AUDIO_LOGLN("SR begin: no Chinese multinet");
+    esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
+    _srModels = nullptr;
+    return false;
+  }
+
+  afe_config_t *afe_cfg =
+      afe_config_init("M", reinterpret_cast<srmodel_list_t *>(_srModels), AFE_TYPE_SR,
+                      AFE_MODE_HIGH_PERF);
+  if (!afe_cfg) {
+    AUDIO_LOGLN("SR begin: afe_config_init failed");
+    esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
+    _srModels = nullptr;
+    return false;
+  }
+  _srAfeIface = esp_afe_handle_from_config(afe_cfg);
+  if (!_srAfeIface) {
+    AUDIO_LOGLN("SR begin: esp_afe_handle_from_config failed");
+    afe_config_free(afe_cfg);
+    esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
+    _srModels = nullptr;
+    return false;
+  }
+  afe_iface_legacy_t *iface = asLegacyAfeIface(_srAfeIface);
+  _srAfeData = iface->create_from_config(afe_cfg);
+  afe_config_free(afe_cfg);
+  if (!_srAfeData) {
+    AUDIO_LOGLN("SR begin: create_from_config failed");
+    _srAfeIface = nullptr;
+    esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
+    _srModels = nullptr;
+    return false;
+  }
+  iface->disable_aec(reinterpret_cast<esp_afe_sr_data_t *>(_srAfeData));
+
+  _srDoneEvent = xEventGroupCreate();
+  if (!_srDoneEvent) {
+    AUDIO_LOGLN("SR begin: event group failed");
+    iface->destroy(reinterpret_cast<esp_afe_sr_data_t *>(_srAfeData));
+    _srAfeData = nullptr;
+    _srAfeIface = nullptr;
+    esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
+    _srModels = nullptr;
+    return false;
+  }
+
+  if (!openRecCodec(16000, 16, 1)) {
+    AUDIO_LOGLN("SR begin: openRecCodec failed");
+    vEventGroupDelete(_srDoneEvent);
+    _srDoneEvent = nullptr;
+    iface->destroy(reinterpret_cast<esp_afe_sr_data_t *>(_srAfeData));
+    _srAfeData = nullptr;
+    _srAfeIface = nullptr;
+    esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
+    _srModels = nullptr;
+    return false;
+  }
+
+  xEventGroupClearBits(_srDoneEvent, kSrAllDone);
+  _srTaskFlag = 1;
+
+  if (xTaskCreatePinnedToCore(srDetectTaskEntry, "audio_sr_det", 8192, this, 5,
+                              &_srDetectTaskHandle, 1) != pdPASS) {
+    AUDIO_LOGLN("SR begin: detect task failed");
+    _srTaskFlag = 0;
+    speechRecognitionDeinitInternal();
+    return false;
+  }
+  if (xTaskCreatePinnedToCore(srFeedTaskEntry, "audio_sr_feed", 8192, this, 5,
+                              &_srFeedTaskHandle, 0) != pdPASS) {
+    AUDIO_LOGLN("SR begin: feed task failed");
+    _srTaskFlag = 0;
+    (void)xEventGroupWaitBits(_srDoneEvent, kSrDetectDone, pdTRUE, pdTRUE,
+                             pdMS_TO_TICKS(8000));
+    _srDetectTaskHandle = nullptr;
+    speechRecognitionDeinitInternal();
+    return false;
+  }
+  return true;
+}
+
+void Audio::speechRecognitionEnd() {
+  if (!_srAfeIface && !_srModels) return;
+  _srMultinetReady = false;
+  _srTaskFlag = 0;
+  if (_srDoneEvent) {
+    EventBits_t bits = xEventGroupWaitBits(_srDoneEvent, kSrAllDone, pdTRUE, pdTRUE,
+                                           pdMS_TO_TICKS(8000));
+    if ((bits & kSrAllDone) != kSrAllDone) {
+      AUDIO_LOGLN("SR end: task join timeout");
+    }
+  }
+  _srFeedTaskHandle = nullptr;
+  _srDetectTaskHandle = nullptr;
+  speechRecognitionDeinitInternal();
+}
+
+bool Audio::speechRecognitionRunning() const { return _srAfeIface != nullptr; }
+
+bool Audio::speechRecognitionWaitReady(uint32_t timeoutMs) {
+  uint32_t start = millis();
+  while (!_srMultinetReady && millis() - start < timeoutMs) {
+    delay(10);
+  }
+  return _srMultinetReady;
+}
+
+bool Audio::speechRecognitionAddCommand(int commandId, const char *phraseUtf8) {
+  if (!phraseUtf8 || !phraseUtf8[0]) return false;
+  char buf[ESP_MN_MAX_PHRASE_LEN + 1];
+  strncpy(buf, phraseUtf8, ESP_MN_MAX_PHRASE_LEN);
+  buf[ESP_MN_MAX_PHRASE_LEN] = '\0';
+  char *dup = strdup(buf);
+  if (!dup) return false;
+  esp_err_t e = esp_mn_commands_add(commandId, dup);
+  free(dup);
+  return e == ESP_OK;
+}
+
+bool Audio::speechRecognitionClearCommands() {
+  return esp_mn_commands_clear() == ESP_OK;
+}
+
+bool Audio::speechRecognitionApplyCommands() {
+  if (!_srMultinetReady) return false;
+  esp_mn_error_t *err = esp_mn_commands_update();
+  if (err) {
+    AUDIO_LOG("SR apply: multinet rejected some phrases (num=%d)\n", err->num);
+    return false;
+  }
+  return true;
+}
+
+int Audio::speechRecognitionCommandId() const { return _srLatestCommandId; }
+
+int Audio::speechRecognitionWakeupFlag() const { return _srWakeupFlag; }
+
+void Audio::speechRecognitionResetCommandId() { _srLatestCommandId = 0; }
 

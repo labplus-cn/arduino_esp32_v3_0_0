@@ -1,6 +1,6 @@
 # Audio Examples
 
-`examples/audio` 目录包含 6 个音频示例，覆盖以下常见场景：
+`examples/audio` 目录包含多个音频示例，覆盖以下常见场景：
 
 - 本地播放
 - 网络播放

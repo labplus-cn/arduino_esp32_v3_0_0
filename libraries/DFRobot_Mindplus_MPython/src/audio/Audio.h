@@ -8,6 +8,7 @@
 #include <freertos/semphr.h>
 #include <freertos/task.h>
 #include <freertos/ringbuf.h>
+#include <freertos/event_groups.h>
 #include "audio/esp_codec_dev/include/esp_codec_dev.h"
 #include "audio/esp_codec_dev/include/esp_codec_dev_defaults.h"
 #include "audio/esp_codec_dev/interface/audio_codec_gpio_if.h"
@@ -61,6 +62,32 @@ public:
     // 语音合成功能
     bool ttsInit();
     bool textToSpeech(const char *text);
+
+    /**
+     * 离线语音命令识别（WakeNet + MultiNet，esp-sr）。
+     * 需要 flash 上存在 label 为 "model" 的分区及对应模型；勿与 startRecord() 同时使用。
+     *
+     * @param wakeupReplyTts 唤醒后可选播放的 UTF-8 文本（需先 ttsInit）；nullptr 则不播
+     * @param multinetTimeoutMs MultiNet 命令识别超时（毫秒）
+     * @param loadCommandsFromSdkconfig 为 true 时从 sdkconfig 加载命令表（多数 Arduino 工程无此项，常为 false）
+     */
+    bool speechRecognitionBegin(const char *wakeupReplyTts = nullptr,
+                                uint16_t multinetTimeoutMs = 6000,
+                                bool loadCommandsFromSdkconfig = false);
+    void speechRecognitionEnd();
+    bool speechRecognitionRunning() const;
+
+    /** 等待 MultiNet 与命令链表就绪后再 add/apply */
+    bool speechRecognitionWaitReady(uint32_t timeoutMs = 15000);
+
+    bool speechRecognitionAddCommand(int commandId, const char *phraseUtf8);
+    bool speechRecognitionClearCommands();
+    /** 在 add/clear/modify 之后调用，将命令同步到 MultiNet */
+    bool speechRecognitionApplyCommands();
+
+    int speechRecognitionCommandId() const;
+    int speechRecognitionWakeupFlag() const;
+    void speechRecognitionResetCommandId();
 
 private:
     static constexpr int I2C_PORT = 0;
@@ -138,6 +165,30 @@ private:
 
     // 语音合成任务
     static void ttsTask(void *arg);
+
+    // esp-sr 语音识别（实现见 Audio.cpp，句柄均为 void* 避免在头文件中包含 esp-sr）
+    void srFeedTask();
+    void srDetectTask();
+    static void srFeedTaskEntry(void *arg);
+    static void srDetectTaskEntry(void *arg);
+    bool speechRecognitionDeinitInternal();
+
+    void *_srAfeIface;
+    void *_srAfeData;
+    void *_srModels;
+    volatile int _srTaskFlag;
+    volatile int _srLatestCommandId;
+    volatile int _srWakeupFlag;
+    volatile bool _srMultinetReady;
+    void *_srMultinet;
+    void *_srMnModel;
+    uint16_t _srMnTimeoutMs;
+    String _srWakeupReplyTts;
+    bool _srLoadFromSdkconfig;
+    EventGroupHandle_t _srDoneEvent;
+    TaskHandle_t _srFeedTaskHandle;
+    TaskHandle_t _srDetectTaskHandle;
+    bool _srCommandsAllocated;
 };
 
 #endif
