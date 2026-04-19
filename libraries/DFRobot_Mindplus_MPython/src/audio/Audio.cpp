@@ -549,17 +549,12 @@ bool Audio::openPlayCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
     return false;
   }
 
-  int mclkMultiple = 256;
-  if (sr == 11025 || sr == 22050 || sr == 44100) {
-    mclkMultiple = 384;
-  }
-
   esp_codec_dev_sample_info_t sampleInfo = {
       .bits_per_sample = bits,
       .channel = ch,
       .channel_mask = 0,
       .sample_rate = sr,
-      .mclk_multiple = mclkMultiple,
+      .mclk_multiple = 256,
   };
 
   AUDIO_LOG("openPlayCodec(sr=%lu, bits=%u, ch=%u) mclk=%d\n",

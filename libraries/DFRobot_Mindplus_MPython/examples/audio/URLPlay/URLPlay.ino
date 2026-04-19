@@ -1,19 +1,13 @@
 #include <MPython.h>
 
-namespace {
-// WiFi 账号。
 constexpr char kWiFiSsid[] = "YOUR_WIFI_SSID";
 constexpr char kWiFiPassword[] = "YOUR_WIFI_PASSWORD";
 
-// 网络音频文件的直链 URL。
-// 建议使用可直接访问的音频文件地址，不要使用 m3u8 播放列表。
-// 该 URL 也出现在 esp-gmf 的 http 播放示例中，便于对照验证。
 constexpr char kAudioUrl[] =
     "https://dl.espressif.com/dl/audio/gs-16b-2c-44100hz.mp3";
+    "http://cdn.makeymonkey.com/test/32_%E6%8B%94%E8%90%9D%E5%8D%9C.mp3";
 
-// 播放音量，范围通常为 0~100。
-constexpr uint8_t kPlayVolume = 80;
-}  // namespace
+uint8_t kPlayVolume = 60;
 
 void setup() {
     Serial.begin(115200);
@@ -35,7 +29,6 @@ void setup() {
         Serial.println(" failed.");
         return;
     }
-    Serial.println(" ok.");
     Serial.print("IP: ");
     Serial.println(mPython.wifi.localIP());
 
@@ -46,15 +39,6 @@ void setup() {
         return;
     }
 
-    // 循环输出当前播放状态，直到播放结束。
-    while (mPython.audio.state() == Audio::PLAY_STATE_PLAYING ||
-           mPython.audio.state() == Audio::PLAY_STATE_PAUSED) {
-        Serial.printf("state=%s\n", mPython.audio.stateName());
-        delay(500);
-    }
-
-    // 输出最终播放状态，便于判断是正常结束还是异常停止。
-    Serial.printf("final state=%s\n", mPython.audio.stateName());
     Serial.println("Done.");
 }
 
