@@ -34,9 +34,12 @@ esp_err_t DisplayFB::begin() {
         return ESP_ERR_NO_MEM;
     }
     
+    // 显示开机 logo
+    _lcd.show_logo();
+
     // 清空屏幕
-    fillScreen(0x0000);
-    
+    // fillScreen(0x0000);
+
     return ESP_OK;
 }
 

@@ -4,6 +4,7 @@
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <Wire.h>
+#include <cstring>
 #include <memory>
 
 #include "driver/i2s_std.h"
@@ -53,7 +54,6 @@ constexpr gpio_num_t BCLK_PIN = GPIO_NUM_41;
 constexpr gpio_num_t WS_PIN = GPIO_NUM_42;
 constexpr gpio_num_t DOUT_PIN = GPIO_NUM_38;
 constexpr gpio_num_t DIN_PIN = GPIO_NUM_40;
-
 constexpr size_t RECORD_BUFFER_BYTES = 2048;
 constexpr size_t RECORD_RING_BUFFER_BYTES = 64 * 1024;
 // Larger buffer reduces decoder starvation on network jitter.
@@ -78,7 +78,6 @@ bool wr32(File &file, uint32_t value) {
   };
   return file.write(bytes, 4) == 4;
 }
-
 
 esp_audio_simple_dec_type_t getDecoderTypeFromPath(const char *path) {
   if (!path) return ESP_AUDIO_SIMPLE_DEC_TYPE_NONE;
@@ -178,7 +177,8 @@ size_t playBufferRead(AudioPlayContext *ctx, uint8_t *dst, size_t len) {
 void networkReadTask(void *arg) {
   AudioPlayContext *ctx = reinterpret_cast<AudioPlayContext *>(arg);
   HTTPClient http;
-  std::unique_ptr<NetworkClient> client;
+  WiFiClientSecure *secureClient = nullptr;
+  WiFiClient *plainClient = nullptr;
   uint8_t *tmp = (uint8_t *)malloc(1460);
 
   if (!tmp) {
@@ -187,15 +187,20 @@ void networkReadTask(void *arg) {
   }
   if (ctx && ctx->source.length()) {
     AUDIO_LOG("PlayUrl(url=%s)\n", ctx->source.c_str());
-    if (!strncmp(ctx->source.c_str(), "https://", 8)) {
-      auto *secureClient = new WiFiClientSecure();
+
+    bool isHttps = !strncmp(ctx->source.c_str(), "https://", 8);
+    bool beginOk = false;
+    if (isHttps) {
+      secureClient = new WiFiClientSecure();
       secureClient->setInsecure();
-      client.reset(secureClient);
+      secureClient->setHandshakeTimeout(30);
+      beginOk = http.begin(*secureClient, ctx->source);
     } else {
-      client.reset(new WiFiClient());
+      plainClient = new WiFiClient();
+      beginOk = http.begin(*plainClient, ctx->source);
     }
 
-    if (!client || !http.begin(*client, ctx->source)) {
+    if (!beginOk) {
       AUDIO_LOGLN("PlayUrl failed: http begin failed");
     } else {
       http.setTimeout(AUDIO_HTTP_TIMEOUT_MS);
@@ -208,8 +213,11 @@ void networkReadTask(void *arg) {
       http.addHeader("Accept-Encoding", "identity");
 
       int statusCode = http.GET();
+      AUDIO_LOG("PlayUrl: http.GET() returned %d\n", statusCode);
       if (statusCode != HTTP_CODE_OK && statusCode != HTTP_CODE_PARTIAL_CONTENT) {
-        AUDIO_LOG("PlayUrl failed: http status=%d\n", statusCode);
+        AUDIO_LOG("PlayUrl failed: http status=%d (%s)\n",
+                  statusCode,
+                  HTTPClient::errorToString(statusCode).c_str());
       } else {
         String contentEncoding = http.header("Content-Encoding");
         contentEncoding.toLowerCase();
@@ -274,6 +282,8 @@ done:
     ctx->readTaskHandle = nullptr;
   }
   http.end();
+  delete secureClient;
+  delete plainClient;
   vTaskDelete(nullptr);
 }
 
@@ -350,12 +360,7 @@ Audio::Audio()
       _recordWriterDone(true),
       _recordCaptureTaskHandle(nullptr),
       _recordWriterTaskHandle(nullptr),
-      _recordBuffer(nullptr),
-      _recordBufferSize(0),
-      _recordBufferHead(0),
-      _recordBufferTail(0),
-      _recordBufferCount(0),
-      _recordBufferLock(nullptr),
+      _recordRingbuf(nullptr),
       _volume(DEFAULT_VOLUME),
       _micGain(35.0f),
       _recordFs(nullptr),
@@ -368,12 +373,6 @@ Audio::~Audio() { end(); }
 
 bool Audio::mountFS(fs::FS *fs, const char *label) {
   return fs && (fs != &LittleFS || LittleFS.begin(true, "/littlefs", 5, label));
-}
-
-bool Audio::initI2C() {
-  Wire.begin(SDA_PIN, SCL_PIN);
-  Wire.setClock(100000);
-  return true;
 }
 
 bool Audio::initI2S() {
@@ -523,7 +522,9 @@ bool Audio::begin() {
 
   AUDIO_LOGLN("begin()");
 
-  if (!initI2C() || !initI2S() || !initCodec()) {
+  Wire.begin(SDA_PIN, SCL_PIN);
+  Wire.setClock(100000);
+  if (!initI2S() || !initCodec()) {
     AUDIO_LOGLN("begin failed during init");
     deinitCodec();
     return false;
@@ -545,14 +546,11 @@ void Audio::end() {
 
 bool Audio::openPlayCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
   if (!_playDev) {
-    AUDIO_LOGLN("openPlayCodec failed: _playDev is null");
+    AUDIO_LOGLN("OpenPlayCodec failed: _playDev is null");
     return false;
   }
 
   int mclkMultiple = 256;
-  if (sr == 11025 || sr == 22050 || sr == 44100) {
-    mclkMultiple = 384;
-  }
 
   esp_codec_dev_sample_info_t sampleInfo = {
       .bits_per_sample = bits,
@@ -562,12 +560,12 @@ bool Audio::openPlayCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
       .mclk_multiple = mclkMultiple,
   };
 
-  AUDIO_LOG("openPlayCodec(sr=%lu, bits=%u, ch=%u) mclk=%d\n",
+  AUDIO_LOG("OpenPlayCodec(sr=%lu, bits=%u, ch=%u) mclk=%d\n",
       (unsigned long)sr, bits, ch, sampleInfo.mclk_multiple);
 
   int status = esp_codec_dev_open(_playDev, &sampleInfo);
   if (status != ESP_CODEC_DEV_OK) {
-    AUDIO_LOG("openPlayCodec failed: status=%d\n", status);
+    AUDIO_LOG("OpenPlayCodec failed: status=%d\n", status);
     return false;
   }
   esp_codec_dev_set_out_vol(_playDev, _volume);
@@ -627,58 +625,31 @@ bool Audio::setMicGain(float gain) {
 
 bool Audio::initRecordBuffer(size_t bufferSize) {
   deinitRecordBuffer();
-  _recordBuffer = (uint8_t *)malloc(bufferSize);
-  if (!_recordBuffer) return false;
-  _recordBufferLock = xSemaphoreCreateMutex();
-  if (!_recordBufferLock) {
-    free(_recordBuffer);
-    _recordBuffer = nullptr;
-    return false;
-  }
-  _recordBufferSize = bufferSize;
-  _recordBufferHead = 0;
-  _recordBufferTail = 0;
-  _recordBufferCount = 0;
-  return true;
+  _recordRingbuf = xRingbufferCreate(bufferSize, RINGBUF_TYPE_BYTEBUF);
+  return _recordRingbuf != nullptr;
 }
 
 void Audio::deinitRecordBuffer() {
-  if (_recordBufferLock) {
-    vSemaphoreDelete(_recordBufferLock);
-    _recordBufferLock = nullptr;
+  if (_recordRingbuf) {
+    vRingbufferDelete(_recordRingbuf);
+    _recordRingbuf = nullptr;
   }
-  free(_recordBuffer);
-  _recordBuffer = nullptr;
-  _recordBufferSize = 0;
-  _recordBufferHead = 0;
-  _recordBufferTail = 0;
-  _recordBufferCount = 0;
 }
 
 size_t Audio::recordBufferWrite(const uint8_t *src, size_t len) {
-  size_t written = 0;
-  if (!_recordBuffer || !_recordBufferLock || !src || !len) return 0;
-  if (xSemaphoreTake(_recordBufferLock, pdMS_TO_TICKS(10)) != pdTRUE) return 0;
-  while (written < len && _recordBufferCount < _recordBufferSize) {
-    _recordBuffer[_recordBufferHead] = src[written++];
-    _recordBufferHead = (_recordBufferHead + 1) % _recordBufferSize;
-    _recordBufferCount++;
-  }
-  xSemaphoreGive(_recordBufferLock);
-  return written;
+  if (!_recordRingbuf || !src || !len) return 0;
+  if (xRingbufferSend(_recordRingbuf, src, len, 0) == pdTRUE) return len;
+  return 0;
 }
 
 size_t Audio::recordBufferRead(uint8_t *dst, size_t len) {
-  size_t read = 0;
-  if (!_recordBuffer || !_recordBufferLock || !dst || !len) return 0;
-  if (xSemaphoreTake(_recordBufferLock, pdMS_TO_TICKS(10)) != pdTRUE) return 0;
-  while (read < len && _recordBufferCount > 0) {
-    dst[read++] = _recordBuffer[_recordBufferTail];
-    _recordBufferTail = (_recordBufferTail + 1) % _recordBufferSize;
-    _recordBufferCount--;
-  }
-  xSemaphoreGive(_recordBufferLock);
-  return read;
+  if (!_recordRingbuf || !dst || !len) return 0;
+  size_t received = 0;
+  void *item = xRingbufferReceiveUpTo(_recordRingbuf, &received, 0, len);
+  if (!item) return 0;
+  memcpy(dst, item, received);
+  vRingbufferReturnItem(_recordRingbuf, item);
+  return received;
 }
 
 bool Audio::writeWavHeader(File &file, uint32_t dataSize, uint32_t sampleRate,
@@ -899,7 +870,8 @@ void Audio::recordWriterTask() {
     return;
   }
 
-  while (!_recordStopRequested || _recordBufferCount > 0 || !_recordCaptureDone) {
+  while (!_recordStopRequested || !_recordCaptureDone ||
+         (_recordRingbuf && xRingbufferGetCurFreeSize(_recordRingbuf) < RECORD_RING_BUFFER_BYTES)) {
     size_t bytesRead = recordBufferRead(buffer, RECORD_BUFFER_BYTES);
     if (!bytesRead) {
       vTaskDelay(pdMS_TO_TICKS(2));
@@ -1039,9 +1011,6 @@ void Audio::playDecodeTask() {
   bool ok = true;
   bool codecOpened = false;     // codec（I2S+ES8388）是否已按音频参数打开
   bool firstWriteLogged = false;
-  bool monoExpand = false;      // 解码器输出单声道时需要在写入前扩展为立体声
-  uint8_t *stereoBuffer = nullptr;  // 单声道扩展为立体声的临时缓冲区
-  size_t stereoBufferSize = 0;
   esp_audio_simple_dec_info_t simpleInfo = {};
   setPlayState(PLAY_STATE_PLAYING);
 
@@ -1132,7 +1101,7 @@ void Audio::playDecodeTask() {
           // 按实际音频参数配置 I2S 时钟和 ES8388 DAC
           // channel=1 时 esp_codec_dev 内部自动设置 I2S slot mask，无需手动扩展为立体声
           if (!openPlayCodec(simpleInfo.sample_rate, bitsPerSample, channels)) {
-            AUDIO_LOGLN("PlayDecodeTask openPlayCodec failed");
+            AUDIO_LOGLN("PlayDecodeTask OpenPlayCodec failed");
             ok = false;
             _playStopRequested = true;
             break;
@@ -1229,22 +1198,22 @@ bool Audio::play(const char *path) {
 
   TaskFunction_t readTask = sourceIsUrl ? networkReadTask : localReadTask;
   const char *readTaskName = sourceIsUrl ? "networkReadTask" : "localReadTask";
-  uint32_t readTaskStackSize = sourceIsUrl ? 10240 : 4096;  // 网络任务需要更大栈空间（HTTPClient + WiFiClientSecure）
-  if (xTaskCreatePinnedToCore(readTask,
-                              readTaskName,
-                              readTaskStackSize,
-                              ctx,
-                              2,
-                              &_playReadTaskHandle,
-                              0) != pdPASS) {
-    _playReadTaskHandle = nullptr;
-    _playContext = nullptr;
-    vSemaphoreDelete(ctx->lock);
-    free(ctx->buf);
-    delete ctx;
-    setPlayState(PLAY_STATE_ERROR);
-    return false;
-  }
+  uint32_t readTaskStackSize = sourceIsUrl ? 24576 : 4096;  // 网络任务需要更大栈空间（HTTPClient + WiFiClientSecure）
+    if (xTaskCreatePinnedToCore(readTask,
+                                readTaskName,
+                                readTaskStackSize,
+                                ctx,
+                                2,
+                                &_playReadTaskHandle,
+                                0) != pdPASS) {
+      _playReadTaskHandle = nullptr;
+      _playContext = nullptr;
+      vSemaphoreDelete(ctx->lock);
+      free(ctx->buf);
+      delete ctx;
+      setPlayState(PLAY_STATE_ERROR);
+      return false;
+    }
   ctx->readTaskHandle = _playReadTaskHandle;
 
   if (xTaskCreatePinnedToCore([](void *a){ static_cast<Audio*>(a)->playDecodeTask(); vTaskDelete(nullptr); },
