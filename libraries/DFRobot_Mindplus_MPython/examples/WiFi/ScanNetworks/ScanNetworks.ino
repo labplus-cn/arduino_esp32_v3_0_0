@@ -4,6 +4,7 @@ void setup() {
     Serial.begin(115200);
     delay(1000);
     Serial.println("=== WiFi Scan Example ===");
+    mPython.begin();
 
     int16_t count = mPython.wifi.scanNetworks();
     if (count < 0) {

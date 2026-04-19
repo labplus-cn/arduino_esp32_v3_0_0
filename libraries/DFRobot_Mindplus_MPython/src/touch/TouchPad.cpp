@@ -45,7 +45,7 @@ static void taskLoop(void *param)
 }
 
 TouchPad::TouchPad(uint8_t _io)
-    : io(_io), valuePrevPrev(20000), valuePrev(20000), value(20000), threshold(50000)
+    : threshold(50000), io(_io), valuePrevPrev(20000), valuePrev(20000), value(20000)
 {
     touchedCb = NULL;
     untouchedCb = NULL;

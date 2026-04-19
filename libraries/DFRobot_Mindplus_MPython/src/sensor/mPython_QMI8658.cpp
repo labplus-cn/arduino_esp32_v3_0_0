@@ -50,34 +50,6 @@ bool mPython_QMI8658::begin(TwoWire &wire, uint8_t address) {
     return true;
 }
 
-// Platform-specific I2C initialization
-static bool initializeI2C(uint8_t sda_pin, uint8_t scl_pin, TwoWire &wire_instance) {
-    #if defined(ARDUINO_ARCH_RP2040)
-        // RP2040: Auto-select Wire or Wire1 based on pins
-        if ((sda_pin == 6 && scl_pin == 7) || (sda_pin == 2 && scl_pin == 3) || 
-            (sda_pin == 10 && scl_pin == 11) || (sda_pin == 14 && scl_pin == 15) ||
-            (sda_pin == 18 && scl_pin == 19) || (sda_pin == 26 && scl_pin == 27)) {
-            // These pins work with Wire1
-            Wire1.setSDA(sda_pin);
-            Wire1.setSCL(scl_pin);
-            Wire1.begin();
-            return true;
-        } else {
-            // Default pins work with Wire
-            Wire.setSDA(sda_pin);
-            Wire.setSCL(scl_pin);
-            Wire.begin();
-            return true;
-        }
-    #elif defined(ESP32) || defined(ESP8266)
-        wire_instance.begin(sda_pin, scl_pin);
-        return true;
-    #else
-        // Arduino Uno/Nano - ignore custom pins, use default
-        wire_instance.begin();
-        return true;
-    #endif
-}
 
 bool mPython_QMI8658::begin(uint8_t sda_pin, uint8_t scl_pin, uint8_t address) {
     _address = address;
@@ -97,7 +69,6 @@ bool mPython_QMI8658::begin(uint8_t sda_pin, uint8_t scl_pin, uint8_t address) {
             _wire = &Wire;
         }
     #elif defined(ESP32) || defined(ESP8266)
-        Wire.begin(sda_pin, scl_pin);
         _wire = &Wire;
     #else
         // Arduino Uno/Nano - use default pins

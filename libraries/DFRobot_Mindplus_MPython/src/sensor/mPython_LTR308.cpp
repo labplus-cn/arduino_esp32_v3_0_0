@@ -27,7 +27,7 @@ version 0.1
 */
 
 #include <stdint.h>
-#include <mPython_LTR308.h>
+#include "mPython_LTR308.h"
 #include <Wire.h>
 
 mPython_LTR308::mPython_LTR308(void) {
@@ -35,11 +35,10 @@ mPython_LTR308::mPython_LTR308(void) {
 }
 
 boolean mPython_LTR308::begin(void) {
-	// Initialize mPython_LTR308 library with default address 
+	// Initialize mPython_LTR308 library with default address
 	// Always returns true
 
 	_i2c_address = mPython_LTR308_ADDR;
-	Wire.begin();
 	return(true);
 }
 

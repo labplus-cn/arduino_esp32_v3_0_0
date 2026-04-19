@@ -9,6 +9,7 @@ void setup() {
     Serial.begin(115200);
     delay(1000);
     Serial.println("=== WiFi Connect Example ===");
+    mPython.begin();
 
     if (mPython.wifi.connect(kSsid, kPassword)) {
         Serial.println("WiFi connected.");

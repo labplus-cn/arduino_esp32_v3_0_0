@@ -10,6 +10,7 @@ void setup() {
     Serial.begin(115200);
     delay(1000);
     Serial.println("=== WiFi Auto Reconnect Example ===");
+    mPython.begin();
 
     mPython.wifi.setAutoReconnect(true);
     if (mPython.wifi.connect(kSsid, kPassword)) {

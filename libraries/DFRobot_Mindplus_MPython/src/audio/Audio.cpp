@@ -156,7 +156,7 @@ size_t playBufferWrite(AudioPlayContext *ctx, const uint8_t *src, size_t len) {
   while (written < len && ctx->count < ctx->cap) {
     ctx->buf[ctx->head] = src[written++];
     ctx->head = (ctx->head + 1) % ctx->cap;
-    ctx->count++;
+    ctx->count = ctx->count + 1;
   }
   xSemaphoreGive(ctx->lock);
   return written;
@@ -169,7 +169,7 @@ size_t playBufferRead(AudioPlayContext *ctx, uint8_t *dst, size_t len) {
   while (read < len && ctx->count > 0) {
     dst[read++] = ctx->buf[ctx->tail];
     ctx->tail = (ctx->tail + 1) % ctx->cap;
-    ctx->count--;
+    ctx->count = ctx->count - 1;
   }
   xSemaphoreGive(ctx->lock);
   return read;
@@ -370,11 +370,6 @@ bool Audio::mountFS(fs::FS *fs, const char *label) {
   return fs && (fs != &LittleFS || LittleFS.begin(true, "/littlefs", 5, label));
 }
 
-bool Audio::initI2C() {
-  Wire.begin(SDA_PIN, SCL_PIN);
-  Wire.setClock(100000);
-  return true;
-}
 
 bool Audio::initI2S() {
   i2s_chan_config_t channelConfig =
@@ -523,7 +518,7 @@ bool Audio::begin() {
 
   AUDIO_LOGLN("begin()");
 
-  if (!initI2C() || !initI2S() || !initCodec()) {
+  if (!initI2S() || !initCodec()) {
     AUDIO_LOGLN("begin failed during init");
     deinitCodec();
     return false;
@@ -657,7 +652,7 @@ size_t Audio::recordBufferWrite(const uint8_t *src, size_t len) {
   while (written < len && _recordBufferCount < _recordBufferSize) {
     _recordBuffer[_recordBufferHead] = src[written++];
     _recordBufferHead = (_recordBufferHead + 1) % _recordBufferSize;
-    _recordBufferCount++;
+    _recordBufferCount = _recordBufferCount + 1;
   }
   xSemaphoreGive(_recordBufferLock);
   return written;
@@ -670,7 +665,7 @@ size_t Audio::recordBufferRead(uint8_t *dst, size_t len) {
   while (read < len && _recordBufferCount > 0) {
     dst[read++] = _recordBuffer[_recordBufferTail];
     _recordBufferTail = (_recordBufferTail + 1) % _recordBufferSize;
-    _recordBufferCount--;
+    _recordBufferCount = _recordBufferCount - 1;
   }
   xSemaphoreGive(_recordBufferLock);
   return read;
@@ -1032,11 +1027,8 @@ void Audio::playDecodeTask() {
   }
 
   bool ok = true;
-  bool codecOpened = false;     // codec（I2S+ES8388）是否已按音频参数打开
+  bool codecOpened = false;
   bool firstWriteLogged = false;
-  bool monoExpand = false;      // 解码器输出单声道时需要在写入前扩展为立体声
-  uint8_t *stereoBuffer = nullptr;  // 单声道扩展为立体声的临时缓冲区
-  size_t stereoBufferSize = 0;
   esp_audio_simple_dec_info_t simpleInfo = {};
   setPlayState(PLAY_STATE_PLAYING);
 

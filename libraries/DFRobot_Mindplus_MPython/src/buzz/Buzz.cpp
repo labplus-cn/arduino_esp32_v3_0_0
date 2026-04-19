@@ -29,7 +29,7 @@ const char *const powerDown = "g5:1|d#|c|g4:2|b:1|c5:3|";
 int freqTable[] = {31, 33, 35, 37, 39, 41, 44, 46, 49, 52, 55, 58, 62, 65, 69, 73, 78, 82, 87, 92, 98, 104, 110, 117, 123, 131, 139, 147, 156, 165, 175, 185, 196, 208, 220, 233, 247, 262, 277, 294, 311, 330, 349, 370, 392, 415, 440, 466, 494, 523, 554, 587, 622, 659, 698, 740, 784, 831, 880, 932, 988, 1047, 1109, 1175, 1245, 1319, 1397, 1480, 1568, 1661, 1760, 1865, 1976, 2093, 2217, 2349, 2489, 2637, 2794, 2960, 3136, 3322, 3520, 3729, 3951, 4186};
 
 Buzz::Buzz()
-    : _freq(0), _on(false), _pin(16), _playing(false), ticks(4), tempo(60)
+    : _pin(16), _freq(0), _on(false), _playing(false), ticks(4), tempo(60)
 {
 }
 
@@ -228,7 +228,7 @@ void Buzz::playNextNote(String tone)
     int currentOctave = buzzMelody.currentOctave;
     String currLen = currNote;
 
-    int note;
+    int note = 0;
     boolean isrest = false;
     int beatPos;
     boolean parsingOctave = true;
@@ -356,7 +356,7 @@ void Buzz::taskLoop(void *param)
     self->_playing = true;
     int head=0, trail=0, index=0;
     while (self->_playing) {
-        for(index; index < self->buzzMelody.melody.length(); index++){
+        for(; index < self->buzzMelody.melody.length(); index++){
             if(self->buzzMelody.melody[index] == '|'){
                 trail = index;
                 self->playNextNote(self->buzzMelody.melody.substring(head, trail));

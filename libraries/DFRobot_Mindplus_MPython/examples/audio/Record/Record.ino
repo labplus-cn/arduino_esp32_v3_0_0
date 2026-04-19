@@ -14,11 +14,8 @@ void setup() {
     delay(1500);
     Serial.println("=== Record Example ===");
 
-    // 初始化音频模块。
-    if (!mPython.audio.begin()) {
-        Serial.println("Audio init failed.");
-        return;
-    }
+    // 初始化MPython（含音频模块）。
+    mPython.begin();
 
     // 启动内部自动录音任务。录音启动后，内部采集和写入都会自动进行。
     if (!mPython.audio.startRecord(kRecordFile, 16000, 16, 1)) {

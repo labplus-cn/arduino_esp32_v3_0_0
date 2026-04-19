@@ -26,11 +26,8 @@ void setup() {
     delay(1500);
     Serial.println("=== RecordAdvanced Example ===");
 
-    // 初始化音频模块。
-    if (!mPython.audio.begin()) {
-        Serial.println("Audio init failed.");
-        return;
-    }
+    // 初始化MPython（含音频模块）。
+    mPython.begin();
 
     // 设置播放音量。
     mPython.audio.setVolume(kPlayVolume);

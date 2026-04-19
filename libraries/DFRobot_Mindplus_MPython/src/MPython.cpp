@@ -1,4 +1,5 @@
 #include "MPython.h"
+#include <Wire.h>
 
 MPython::MPython()
     : buttonA(0), buttonB(46), buttonAB(0, 46),
@@ -6,10 +7,16 @@ MPython::MPython()
 }
 
 void MPython::begin(void) {
+    Wire.begin(44, 43);
+    Wire.setClock(100000);
     rgb.begin();
     rgb.write(-1, 0);
+    buzz.begin();
     display.begin();
-    audio.begin();
+    // audio.begin();
+    accelerometer.begin();
+    magnetometer.begin();
+    lightSensor.begin();
 }
 
 MPython mPython;

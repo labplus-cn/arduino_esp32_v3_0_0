@@ -153,7 +153,7 @@ bool FontReader::init() {
     if (_cmap_num > 9 && _cmaps[9].unicode_list) {
         printf("cmap[9] fmt=%d range=0x%lX list=%d: ", _cmaps[9].format_type, _cmaps[9].range_start, _cmaps[9].list_length);
         for (int i = 0; i < 10 && i < _cmaps[9].list_length; i++)
-            printf("0x%X ", _cmaps[9].range_start + _cmaps[9].unicode_list[i]);
+            printf("0x%lX ", _cmaps[9].range_start + _cmaps[9].unicode_list[i]);
         printf("\n");
     }
     return true;

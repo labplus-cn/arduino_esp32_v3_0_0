@@ -23,7 +23,7 @@ public:
     };
 
     Accelerometer();
-    void init(void);
+    void begin(void);
     float getX(void);
     float getY(void);
     float getZ(void);
@@ -46,7 +46,7 @@ private:
 class Magnetometer {
 public:
     Magnetometer();
-    void init(void);
+    void begin(void);
     float getX(void);
     float getY(void);
     float getZ(void);
@@ -62,7 +62,7 @@ private:
 class LightSensor {
 public:
     LightSensor();
-    void init(void);
+    void begin(void);
     uint16_t getLux(void);
 
 private:

@@ -10,7 +10,7 @@ extern "C" {
 #define gfxFont ((GFXfont *)(&FreeMonoBold12pt7b))
 
 // 构造函数
-DisplayFB::DisplayFB() : _fontReader(nullptr), _bgColor(0x0000) {
+DisplayFB::DisplayFB() : _bgColor(0x0000), _fontReader(nullptr) {
 }
 
 // 初始化函数

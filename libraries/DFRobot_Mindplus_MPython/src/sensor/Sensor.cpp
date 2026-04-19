@@ -7,28 +7,6 @@
 #define ARDUINO_RUNNING_CORE 1
 #endif
 
-#define MMC5603NJ_I2C_ADDR 0x30
-#define LTR308ALS_I2C_ADDR 0x29
-
-static uint8_t i2cread(void)
-{
-    return Wire.read();
-}
-
-static void i2cwrite(uint8_t x)
-{
-    Wire.write((uint8_t)x);
-}
-
-static void writeRegister(uint8_t i2cAddress, uint8_t reg, uint8_t value)
-{
-    Wire.setClock(400000);
-    Wire.beginTransmission(i2cAddress);
-    i2cwrite(reg);
-    i2cwrite(value);
-    Wire.endTransmission();
-}
-
 Accelerometer::Accelerometer()
 {
     for (uint8_t i = 0; i < 7; i++)
@@ -43,9 +21,8 @@ Accelerometer::Accelerometer()
     _is_shaked = false;
 }
 
-void Accelerometer::init(void)
+void Accelerometer::begin(void)
 {
-    Wire.begin();
     _qmi8658.begin();
     _qmi8658.setAccelUnit_mg(true); // 使用mg作为单位
     _qmi8658.enableAccel(true);
@@ -117,7 +94,7 @@ void Accelerometer::taskLoop(void *param)
 {
     Accelerometer *self = (Accelerometer *)param;
     char type = ' ';
-    float _last_x, _last_y, _last_z, diff_x, diff_y, diff_z;
+    float _last_x = 0, _last_y = 0, _last_z = 0, diff_x, diff_y, diff_z;
     int _count_shaked = 0;
     while(1){
         wait:
@@ -197,8 +174,7 @@ Magnetometer::Magnetometer() {
     rawZ = 0;
 }
 
-void Magnetometer::init(void) {
-    Wire.begin();
+void Magnetometer::begin(void) {
     // 初始化MMC5603NJ磁力计
     _mmc5603.begin();
     _mmc5603.setContinuousMode(true);
@@ -238,8 +214,7 @@ void Magnetometer::setOffset(int x, int y, int z) {
 LightSensor::LightSensor() {
 }
 
-void LightSensor::init(void) {
-    Wire.begin();
+void LightSensor::begin(void) {
     // 初始化LTR-308ALS-01数字光线传感器
     _ltr308.begin();
     _ltr308.setPowerUp();

@@ -27,6 +27,7 @@ void setup() {
     Serial.begin(115200);
     delay(1000);
     Serial.println("=== WiFi Full Helper Example ===");
+    mPython.begin();
 
     mPython.wifi.setAutoReconnect(true);
 

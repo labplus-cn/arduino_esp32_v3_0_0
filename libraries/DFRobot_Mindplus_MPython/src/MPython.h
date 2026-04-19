@@ -10,6 +10,7 @@
 #include "touch/TouchPad.h"
 #include "fs/USBDISK.h"
 #include "wifi/WiFi.h"
+#include "sensor/Sensor.h"
 
 class MPython {
 public:
@@ -31,6 +32,9 @@ public:
     TouchPad touchPadN;
     USBDISK usbDisk;
     MPythonWiFi wifi;
+    Accelerometer accelerometer;
+    Magnetometer magnetometer;
+    LightSensor lightSensor;
 };
 
 extern MPython mPython;

@@ -105,7 +105,6 @@ private:
     uint8_t _recordChannels;
 
     bool mountFS(fs::FS *fs, const char *partitionLabel);
-    bool initI2C();
     bool initI2S();
     bool initCodec();
     void deinitCodec();
