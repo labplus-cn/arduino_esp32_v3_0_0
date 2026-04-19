@@ -253,12 +253,12 @@ static int es8388_open(const audio_codec_if_t *h, void *cfg, int cfg_size)
     res |= es8388_write_reg(codec, ES8388_DACCONTROL27, 0);
 
     // TODO default use DAC_ALL
-    int tmp = DAC_OUTPUT_LOUT1 | DAC_OUTPUT_LOUT2 | DAC_OUTPUT_ROUT1 | DAC_OUTPUT_ROUT2;
-    res |= es8388_write_reg(codec, ES8388_DACPOWER, tmp); // 0x3c Enable DAC and Enable Lout/Rout/1/2
+    // int tmp = DAC_OUTPUT_LOUT1 | DAC_OUTPUT_LOUT2 | DAC_OUTPUT_ROUT1 | DAC_OUTPUT_ROUT2;
+    // res |= es8388_write_reg(codec, ES8388_DACPOWER, tmp); // 0x3c Enable DAC and Enable Lout/Rout/1/2
     /* adc */
     res |= es8388_write_reg(codec, ES8388_ADCPOWER, 0xFF);
     res |= es8388_write_reg(codec, ES8388_ADCCONTROL1, 0xbb); // MIC Left and Right channel PGA gain
-    tmp = 0;
+
     // TODO default use ADC LINE1
     // 0x00 LINSEL & RINSEL, LIN1/RIN1 as ADC Input; DSSEL,use one DS Reg11; DSR, LINPUT1-RINPUT1
     res |= es8388_write_reg(codec, ES8388_ADCCONTROL2, ADC_INPUT_LINPUT1_RINPUT1);

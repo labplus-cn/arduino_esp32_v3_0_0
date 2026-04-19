@@ -26,16 +26,23 @@ esp_err_t DisplayFB::begin() {
     _height = BOARD_LCD_V_RES;
     
     // 分配帧缓冲区
+    // 使用 PSRAM 分配帧缓冲区，避免占用内部 DMA RAM。
+    // show() 调用 esp_lcd_panel_draw_bitmap 时，IDF SPI LCD 驱动内部会将数据
+    // 分段复制到内部 DMA 缓冲区再传输，不要求帧缓冲区本身在 DMA RAM 中。
     _fb.width = _width;
     _fb.height = _height;
     _fb.format = PIXFORMAT_RGB565;
-    _fb.buf = (uint8_t *)heap_caps_malloc(_width * _height * 2, MALLOC_CAP_DMA);
+    _fb.buf = (uint8_t *)heap_caps_malloc(_width * _height * 2, MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
+    if (_fb.buf == NULL) {
+        // PSRAM 不可用时回退到内部 RAM
+        _fb.buf = (uint8_t *)heap_caps_malloc(_width * _height * 2, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    }
     if (_fb.buf == NULL) {
         return ESP_ERR_NO_MEM;
     }
     
-    // 清空屏幕
-    fillScreen(0x0000);
+    _lcd.show_logo(); // 显示logo
+    // fillScreen(0x0000); // 清空帧缓冲区，避免未初始化数据后续被 show() 输出
     
     return ESP_OK;
 }

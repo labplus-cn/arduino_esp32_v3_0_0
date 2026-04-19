@@ -13,7 +13,7 @@ void MPython::begin(void) {
     rgb.write(-1, 0);
     buzz.begin();
     display.begin();
-    // audio.begin();
+    audio.begin();
     accelerometer.begin();
     magnetometer.begin();
     lightSensor.begin();

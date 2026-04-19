@@ -9,6 +9,12 @@
 #include "esp_log.h"
 #include "string.h"
 
+#ifdef ARDUINO_LABPLUS_LEDONG_V2
+    #include "logo_labplus_ledong_v2_320x172_lcd.h"
+#else
+    #include "logo_mpython_v3_320x172_lcd.h"
+#endif
+
 // 日志标签
 static const char *TAG = "LCD_jd9853";
 
@@ -270,14 +276,6 @@ esp_err_t LCD_jd9853::show_logo(void) {
         return ESP_ERR_INVALID_STATE;
     }
 
-    #ifdef ARDUINO_MPYTHON_V3
-        #include "logo_mpython_v3_320x172_lcd.h"
-    #elif defined(ARDUINO_LABPLUS_LEDONG_V2)
-        #include "logo_labplus_ledong_v2_320x172_lcd.h"
-    #else // 默认使用mPython V3的logo
-        #include "logo_mpython_v3_320x172_lcd.h"
-    #endif
-
     uint16_t *pixels = (uint16_t *)heap_caps_malloc((BOARD_LCD_H_RES * BOARD_LCD_V_RES) * sizeof(uint16_t), MALLOC_CAP_8BIT | MALLOC_CAP_SPIRAM);
     if (NULL == pixels)
     {
@@ -285,7 +283,7 @@ esp_err_t LCD_jd9853::show_logo(void) {
         return ESP_ERR_NO_MEM;
     }
     memcpy(pixels, logo_en_320x172_lcd, (BOARD_LCD_H_RES * BOARD_LCD_V_RES) * sizeof(uint16_t));
-    esp_lcd_panel_draw_bitmap(_panel_handle, 0, 0, BOARD_LCD_H_RES, BOARD_LCD_V_RES, (uint16_t *)pixels);
+    esp_lcd_panel_draw_bitmap(_panel_handle, 0, 0, BOARD_LCD_H_RES, BOARD_LCD_V_RES, pixels);
     heap_caps_free(pixels);
     return ESP_OK;
 }
