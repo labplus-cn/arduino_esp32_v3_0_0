@@ -3,10 +3,13 @@
 void setup() {
   // 初始化MPython
   mPython.begin();
-
+  
   // 初始化串口
   Serial.begin(115200);
   Serial.println("Buzz example started!");
+  
+  // 初始化蜂鸣器
+  mPython.buzz.begin();
 }
 
 void loop() {

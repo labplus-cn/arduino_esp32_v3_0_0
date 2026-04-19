@@ -267,7 +267,9 @@ static int es8388_open(const audio_codec_if_t *h, void *cfg, int cfg_size)
     res |= es8388_write_reg(codec, ES8388_ADCCONTROL5, 0x02); // ADCFsMode,singel SPEED,RATIO=256
     // ALC for Microphone
     res |= es8388_set_adc_dac_volume(codec, ESP_CODEC_DEV_WORK_MODE_ADC, 0, 0); // 0db
-    res |= es8388_write_reg(codec, ES8388_ADCPOWER, 0x09); // Power on ADC
+    // Keep ADC powered down at init; it is powered up in es8388_start() when recording begins.
+    // Leaving ADC on with maximum PGA gain (0xBB) while only playing back causes mic noise
+    // to bleed into the DAC output path, producing a persistent hiss/noise floor.
     if (res != 0) {
         ESP_LOGI(TAG, "Fail to write register");
         return ESP_CODEC_DEV_WRITE_FAIL;

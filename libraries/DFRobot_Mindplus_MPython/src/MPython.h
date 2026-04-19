@@ -2,7 +2,6 @@
 #define __MPYTHON_H
 
 #include "Arduino.h"
-#include <Wire.h>
 #include "display/DisplayFB.h"
 #include "rgb/RGB.h"
 #include "buzz/Buzz.h"

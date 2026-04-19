@@ -6,12 +6,8 @@ MPython::MPython()
 }
 
 void MPython::begin(void) {
-    // 初始化公共 I2C 总线（SDA=44, SCL=43）
-    Wire.begin(44, 43);
-    Wire.setClock(100000);
     rgb.begin();
     rgb.write(-1, 0);
-    buzz.begin();
     display.begin();
     audio.begin();
 }

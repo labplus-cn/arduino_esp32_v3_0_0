@@ -70,8 +70,11 @@ void setup() {
     delay(1500);
     Serial.println("=== KeyControlPlay Example ===");
 
-    // 初始化掌控板。
-    mPython.begin();
+    // 初始化音频模块。
+    if (!mPython.audio.begin()) {
+        Serial.println("Audio init failed.");
+        return;
+    }
 
     // 校准触摸按键阈值，降低空闲状态下误触发音量调节的概率。
     calibrateTouchPad(mPython.touchPadP, "P");

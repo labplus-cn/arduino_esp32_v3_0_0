@@ -4,7 +4,6 @@
 #include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include <Wire.h>
-#include <cstring>
 #include <memory>
 
 #include "driver/i2s_std.h"
@@ -54,6 +53,7 @@ constexpr gpio_num_t BCLK_PIN = GPIO_NUM_41;
 constexpr gpio_num_t WS_PIN = GPIO_NUM_42;
 constexpr gpio_num_t DOUT_PIN = GPIO_NUM_38;
 constexpr gpio_num_t DIN_PIN = GPIO_NUM_40;
+
 constexpr size_t RECORD_BUFFER_BYTES = 2048;
 constexpr size_t RECORD_RING_BUFFER_BYTES = 64 * 1024;
 // Larger buffer reduces decoder starvation on network jitter.
@@ -79,31 +79,7 @@ bool wr32(File &file, uint32_t value) {
   return file.write(bytes, 4) == 4;
 }
 
-<<<<<<< HEAD
-=======
-size_t expandMonoToStereo(const uint8_t *src,
-                          size_t srcLen,
-                          uint8_t bitsPerSample,
-                          uint8_t *dst,
-                          size_t dstCap) {
-  if (!src || !dst || srcLen == 0) return 0;
-  size_t bytesPerSample = bitsPerSample / 8;
-  if (bytesPerSample == 0 || (srcLen % bytesPerSample) != 0) return 0;
-  size_t sampleCount = srcLen / bytesPerSample;
-  size_t outLen = sampleCount * bytesPerSample * 2;
-  if (outLen > dstCap) return 0;
 
-  const uint8_t *in = src;
-  uint8_t *out = dst;
-  for (size_t i = 0; i < sampleCount; ++i) {
-    memcpy(out, in, bytesPerSample);
-    memcpy(out + bytesPerSample, in, bytesPerSample);
-    in += bytesPerSample;
-    out += bytesPerSample * 2;
-  }
-  return outLen;
-
->>>>>>> parent of cf57795 (试图解决音频噪音问题:)
 esp_audio_simple_dec_type_t getDecoderTypeFromPath(const char *path) {
   if (!path) return ESP_AUDIO_SIMPLE_DEC_TYPE_NONE;
 
@@ -149,7 +125,6 @@ esp_audio_simple_dec_type_t getDecoderTypeFromHttpContentType(
   }
   if (lowered.indexOf("video/mp2t") >= 0) return ESP_AUDIO_SIMPLE_DEC_TYPE_TS;
   return ESP_AUDIO_SIMPLE_DEC_TYPE_NONE;
-}
 }
 }  // namespace
 
@@ -203,8 +178,7 @@ size_t playBufferRead(AudioPlayContext *ctx, uint8_t *dst, size_t len) {
 void networkReadTask(void *arg) {
   AudioPlayContext *ctx = reinterpret_cast<AudioPlayContext *>(arg);
   HTTPClient http;
-  WiFiClientSecure *secureClient = nullptr;
-  WiFiClient *plainClient = nullptr;
+  std::unique_ptr<NetworkClient> client;
   uint8_t *tmp = (uint8_t *)malloc(1460);
 
   if (!tmp) {
@@ -213,20 +187,15 @@ void networkReadTask(void *arg) {
   }
   if (ctx && ctx->source.length()) {
     AUDIO_LOG("PlayUrl(url=%s)\n", ctx->source.c_str());
-
-    bool isHttps = !strncmp(ctx->source.c_str(), "https://", 8);
-    bool beginOk = false;
-    if (isHttps) {
-      secureClient = new WiFiClientSecure();
+    if (!strncmp(ctx->source.c_str(), "https://", 8)) {
+      auto *secureClient = new WiFiClientSecure();
       secureClient->setInsecure();
-      secureClient->setHandshakeTimeout(30);
-      beginOk = http.begin(*secureClient, ctx->source);
+      client.reset(secureClient);
     } else {
-      plainClient = new WiFiClient();
-      beginOk = http.begin(*plainClient, ctx->source);
+      client.reset(new WiFiClient());
     }
 
-    if (!beginOk) {
+    if (!client || !http.begin(*client, ctx->source)) {
       AUDIO_LOGLN("PlayUrl failed: http begin failed");
     } else {
       http.setTimeout(AUDIO_HTTP_TIMEOUT_MS);
@@ -239,11 +208,8 @@ void networkReadTask(void *arg) {
       http.addHeader("Accept-Encoding", "identity");
 
       int statusCode = http.GET();
-      AUDIO_LOG("PlayUrl: http.GET() returned %d\n", statusCode);
       if (statusCode != HTTP_CODE_OK && statusCode != HTTP_CODE_PARTIAL_CONTENT) {
-        AUDIO_LOG("PlayUrl failed: http status=%d (%s)\n",
-                  statusCode,
-                  HTTPClient::errorToString(statusCode).c_str());
+        AUDIO_LOG("PlayUrl failed: http status=%d\n", statusCode);
       } else {
         String contentEncoding = http.header("Content-Encoding");
         contentEncoding.toLowerCase();
@@ -308,8 +274,6 @@ done:
     ctx->readTaskHandle = nullptr;
   }
   http.end();
-  delete secureClient;
-  delete plainClient;
   vTaskDelete(nullptr);
 }
 
@@ -366,13 +330,13 @@ done:
 Audio::Audio()
     : _gpioIf(nullptr),
       _ctrlIf(nullptr),
-      _dataIf(nullptr),
+      _playDataIf(nullptr),
+      _recDataIf(nullptr),
       _codecIf(nullptr),
-      _codecDev(nullptr),
+      _playDev(nullptr),
+      _recDev(nullptr),
       _begun(false),
       _recording(false),
-      _decoderRegistered(false),
-      _simpleDecoderRegistered(false),
       _playState(PLAY_STATE_IDLE),
       _playStopRequested(false),
       _playPauseRequested(false),
@@ -386,7 +350,12 @@ Audio::Audio()
       _recordWriterDone(true),
       _recordCaptureTaskHandle(nullptr),
       _recordWriterTaskHandle(nullptr),
-      _recordRingbuf(nullptr),
+      _recordBuffer(nullptr),
+      _recordBufferSize(0),
+      _recordBufferHead(0),
+      _recordBufferTail(0),
+      _recordBufferCount(0),
+      _recordBufferLock(nullptr),
       _volume(DEFAULT_VOLUME),
       _micGain(35.0f),
       _recordFs(nullptr),
@@ -399,6 +368,12 @@ Audio::~Audio() { end(); }
 
 bool Audio::mountFS(fs::FS *fs, const char *label) {
   return fs && (fs != &LittleFS || LittleFS.begin(true, "/littlefs", 5, label));
+}
+
+bool Audio::initI2C() {
+  Wire.begin(SDA_PIN, SCL_PIN);
+  Wire.setClock(100000);
+  return true;
 }
 
 bool Audio::initI2S() {
@@ -431,14 +406,41 @@ bool Audio::initI2S() {
     return false;
   }
 
-  audio_codec_i2s_cfg_t dataConfig = {
+  // 播放用 data_if：只含 TX handle
+  // 官方参考（audio_codec_data_i2s.c）：get_paired() 通过 i2s_data_list 查找同 port
+  // 的配对 data_if，TX 和 RX 各自持有对方 handle 可使框架正确协调时钟。
+  audio_codec_i2s_cfg_t playDataConfig = {
       .port = I2S_PORT,
-      .rx_handle = rx,
+      .rx_handle = nullptr,
       .tx_handle = tx,
       .clk_src = I2S_CLK_SRC_DEFAULT,
   };
-  _dataIf = audio_codec_new_i2s_data(&dataConfig);
-  return _dataIf != nullptr;
+  _playDataIf = audio_codec_new_i2s_data(&playDataConfig);
+  if (!_playDataIf) {
+    i2s_del_channel(tx);
+    i2s_del_channel(rx);
+    return false;
+  }
+
+  // 录音用 data_if：只含 RX handle，不携带 TX handle。
+  // get_paired() 通过相同 port 将 _playDataIf（有 out_handle=TX）和 _recDataIf（有 in_handle=RX）配对。
+  // 当 RX 需要重配时钟时，框架会通过 get_paired() 找到 _playDataIf 并操作其 TX channel，
+  // 不需要在 _recDataIf 中重复注册同一个 TX handle（否则同一 TX handle 被两个条目引用，
+  // 导致 _i2s_drv_enable 对同一 channel 双重操作，产生噪音）。
+  audio_codec_i2s_cfg_t recDataConfig = {
+      .port = I2S_PORT,
+      .rx_handle = rx,
+      .tx_handle = nullptr,
+      .clk_src = I2S_CLK_SRC_DEFAULT,
+  };
+  _recDataIf = audio_codec_new_i2s_data(&recDataConfig);
+  if (!_recDataIf) {
+    audio_codec_delete_data_if(_playDataIf);
+    _playDataIf = nullptr;
+    i2s_del_channel(rx);
+    return false;
+  }
+  return true;
 }
 
 bool Audio::initCodec() {
@@ -465,21 +467,34 @@ bool Audio::initCodec() {
   _codecIf = es8388_codec_new(&codecConfig);
   if (!_codecIf) return false;
 
-  esp_codec_dev_cfg_t devConfig = {
-      .dev_type = ESP_CODEC_DEV_TYPE_IN_OUT,
+  esp_codec_dev_cfg_t playDevConfig = {
+      .dev_type = ESP_CODEC_DEV_TYPE_OUT,
       .codec_if = _codecIf,
-      .data_if = _dataIf,
+      .data_if = _playDataIf,
   };
-  _codecDev = esp_codec_dev_new(&devConfig);
-  return _codecDev != nullptr;
+  _playDev = esp_codec_dev_new(&playDevConfig);
+  if (!_playDev) return false;
+
+  esp_codec_dev_cfg_t recDevConfig = {
+      .dev_type = ESP_CODEC_DEV_TYPE_IN,
+      .codec_if = _codecIf,
+      .data_if = _recDataIf,
+  };
+  _recDev = esp_codec_dev_new(&recDevConfig);
+  return _recDev != nullptr;
 }
 
 void Audio::deinitCodec() {
-  closeCodec();
+  closePlayCodec();
+  closeRecCodec();
 
-  if (_codecDev) {
-    esp_codec_dev_delete(_codecDev);
-    _codecDev = nullptr;
+  if (_playDev) {
+    esp_codec_dev_delete(_playDev);
+    _playDev = nullptr;
+  }
+  if (_recDev) {
+    esp_codec_dev_delete(_recDev);
+    _recDev = nullptr;
   }
   if (_codecIf) {
     audio_codec_delete_codec_if(_codecIf);
@@ -489,9 +504,13 @@ void Audio::deinitCodec() {
     audio_codec_delete_ctrl_if(_ctrlIf);
     _ctrlIf = nullptr;
   }
-  if (_dataIf) {
-    audio_codec_delete_data_if(_dataIf);
-    _dataIf = nullptr;
+  if (_recDataIf) {
+    audio_codec_delete_data_if(_recDataIf);
+    _recDataIf = nullptr;
+  }
+  if (_playDataIf) {
+    audio_codec_delete_data_if(_playDataIf);
+    _playDataIf = nullptr;
   }
   if (_gpioIf) {
     audio_codec_delete_gpio_if(_gpioIf);
@@ -504,64 +523,36 @@ bool Audio::begin() {
 
   AUDIO_LOGLN("begin()");
 
-  Wire.begin(SDA_PIN, SCL_PIN);
-  Wire.setClock(100000);
-  if (!initI2S() || !initCodec()) {
+  if (!initI2C() || !initI2S() || !initCodec()) {
     AUDIO_LOGLN("begin failed during init");
     deinitCodec();
     return false;
   }
 
-  _decoderRegistered = esp_audio_dec_register_default() == ESP_AUDIO_ERR_OK;
-  _simpleDecoderRegistered =
-      esp_audio_simple_dec_register_default() == ESP_AUDIO_ERR_OK;
-
-  AUDIO_LOG("decoder registered=%d, simple decoder registered=%d\n",
-            _decoderRegistered, _simpleDecoderRegistered);
-
   _begun = true;
   setVolume(_volume);
   setMicGain(_micGain);
+
   return true;
 }
 
 void Audio::end() {
   stop();
   stopRecord();
-
-  if (_simpleDecoderRegistered) {
-    esp_audio_simple_dec_unregister_default();
-    _simpleDecoderRegistered = false;
-  }
-  if (_decoderRegistered) {
-    esp_audio_dec_unregister_default();
-    _decoderRegistered = false;
-  }
-
   deinitCodec();
   _begun = false;
 }
 
-<<<<<<< HEAD
 bool Audio::openPlayCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
   if (!_playDev) {
-    AUDIO_LOGLN("OpenPlayCodec failed: _playDev is null");
-=======
-bool Audio::openCodec(uint32_t sr, uint8_t bits, uint8_t ch, bool in, bool out) {
-  if (!_codecDev) {
-    AUDIO_LOGLN("openCodec failed: _codecDev is null");
->>>>>>> parent of cf57795 (试图解决音频噪音问题:)
+    AUDIO_LOGLN("openPlayCodec failed: _playDev is null");
     return false;
   }
 
-  if (out && ch == 1) {
-    ch = 2;
-  }
-  if (in && ch == 1) {
-    ch = 2;
-  }
-
   int mclkMultiple = 256;
+  if (sr == 11025 || sr == 22050 || sr == 44100) {
+    mclkMultiple = 384;
+  }
 
   esp_codec_dev_sample_info_t sampleInfo = {
       .bits_per_sample = bits,
@@ -571,37 +562,18 @@ bool Audio::openCodec(uint32_t sr, uint8_t bits, uint8_t ch, bool in, bool out) 
       .mclk_multiple = mclkMultiple,
   };
 
-<<<<<<< HEAD
-  AUDIO_LOG("OpenPlayCodec(sr=%lu, bits=%u, ch=%u) mclk=%d\n",
+  AUDIO_LOG("openPlayCodec(sr=%lu, bits=%u, ch=%u) mclk=%d\n",
       (unsigned long)sr, bits, ch, sampleInfo.mclk_multiple);
-=======
-  AUDIO_LOG(
-      "openCodec(sr=%lu, bits=%u, ch=%u, in=%d, out=%d) => hw_ch=%u, mask=0x%X, mclk=%d\n",
-      (unsigned long)sr,
-      bits,
-      ch,
-      in,
-      out,
-      sampleInfo.channel,
-      sampleInfo.channel_mask,
-      sampleInfo.mclk_multiple);
->>>>>>> parent of cf57795 (试图解决音频噪音问题:)
 
-  int status = esp_codec_dev_open(_codecDev, &sampleInfo);
+  int status = esp_codec_dev_open(_playDev, &sampleInfo);
   if (status != ESP_CODEC_DEV_OK) {
-<<<<<<< HEAD
-    AUDIO_LOG("OpenPlayCodec failed: status=%d\n", status);
-=======
-    AUDIO_LOG("openCodec failed: status=%d\n", status);
->>>>>>> parent of cf57795 (试图解决音频噪音问题:)
+    AUDIO_LOG("openPlayCodec failed: status=%d\n", status);
     return false;
   }
-  if (out) esp_codec_dev_set_out_vol(_codecDev, _volume);
-  if (in) esp_codec_dev_set_in_gain(_codecDev, _micGain);
+  esp_codec_dev_set_out_vol(_playDev, _volume);
   return true;
 }
 
-<<<<<<< HEAD
 void Audio::closePlayCodec() {
   if (_playDev) esp_codec_dev_close(_playDev);
 }
@@ -613,6 +585,9 @@ bool Audio::openRecCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
   }
 
   int mclkMultiple = 256;
+  if (sr == 11025 || sr == 22050 || sr == 44100) {
+    mclkMultiple = 384;
+  }
 
   esp_codec_dev_sample_info_t sampleInfo = {
       .bits_per_sample = bits,
@@ -636,51 +611,74 @@ bool Audio::openRecCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
 
 void Audio::closeRecCodec() {
   if (_recDev) esp_codec_dev_close(_recDev);
-=======
-void Audio::closeCodec() {
-  if (_codecDev) esp_codec_dev_close(_codecDev);
->>>>>>> parent of cf57795 (试图解决音频噪音问题:)
 }
 
 bool Audio::setVolume(uint8_t volume) {
   _volume = volume > 100 ? 100 : volume;
-  return !_codecDev ||
-         esp_codec_dev_set_out_vol(_codecDev, _volume) == ESP_CODEC_DEV_OK;
+  return !_playDev ||
+         esp_codec_dev_set_out_vol(_playDev, _volume) == ESP_CODEC_DEV_OK;
 }
 
 bool Audio::setMicGain(float gain) {
   _micGain = gain;
-  return !_codecDev ||
-         esp_codec_dev_set_in_gain(_codecDev, _micGain) == ESP_CODEC_DEV_OK;
+  return !_recDev ||
+         esp_codec_dev_set_in_gain(_recDev, _micGain) == ESP_CODEC_DEV_OK;
 }
 
 bool Audio::initRecordBuffer(size_t bufferSize) {
   deinitRecordBuffer();
-  _recordRingbuf = xRingbufferCreate(bufferSize, RINGBUF_TYPE_BYTEBUF);
-  return _recordRingbuf != nullptr;
+  _recordBuffer = (uint8_t *)malloc(bufferSize);
+  if (!_recordBuffer) return false;
+  _recordBufferLock = xSemaphoreCreateMutex();
+  if (!_recordBufferLock) {
+    free(_recordBuffer);
+    _recordBuffer = nullptr;
+    return false;
+  }
+  _recordBufferSize = bufferSize;
+  _recordBufferHead = 0;
+  _recordBufferTail = 0;
+  _recordBufferCount = 0;
+  return true;
 }
 
 void Audio::deinitRecordBuffer() {
-  if (_recordRingbuf) {
-    vRingbufferDelete(_recordRingbuf);
-    _recordRingbuf = nullptr;
+  if (_recordBufferLock) {
+    vSemaphoreDelete(_recordBufferLock);
+    _recordBufferLock = nullptr;
   }
+  free(_recordBuffer);
+  _recordBuffer = nullptr;
+  _recordBufferSize = 0;
+  _recordBufferHead = 0;
+  _recordBufferTail = 0;
+  _recordBufferCount = 0;
 }
 
 size_t Audio::recordBufferWrite(const uint8_t *src, size_t len) {
-  if (!_recordRingbuf || !src || !len) return 0;
-  if (xRingbufferSend(_recordRingbuf, src, len, 0) == pdTRUE) return len;
-  return 0;
+  size_t written = 0;
+  if (!_recordBuffer || !_recordBufferLock || !src || !len) return 0;
+  if (xSemaphoreTake(_recordBufferLock, pdMS_TO_TICKS(10)) != pdTRUE) return 0;
+  while (written < len && _recordBufferCount < _recordBufferSize) {
+    _recordBuffer[_recordBufferHead] = src[written++];
+    _recordBufferHead = (_recordBufferHead + 1) % _recordBufferSize;
+    _recordBufferCount++;
+  }
+  xSemaphoreGive(_recordBufferLock);
+  return written;
 }
 
 size_t Audio::recordBufferRead(uint8_t *dst, size_t len) {
-  if (!_recordRingbuf || !dst || !len) return 0;
-  size_t received = 0;
-  void *item = xRingbufferReceiveUpTo(_recordRingbuf, &received, 0, len);
-  if (!item) return 0;
-  memcpy(dst, item, received);
-  vRingbufferReturnItem(_recordRingbuf, item);
-  return received;
+  size_t read = 0;
+  if (!_recordBuffer || !_recordBufferLock || !dst || !len) return 0;
+  if (xSemaphoreTake(_recordBufferLock, pdMS_TO_TICKS(10)) != pdTRUE) return 0;
+  while (read < len && _recordBufferCount > 0) {
+    dst[read++] = _recordBuffer[_recordBufferTail];
+    _recordBufferTail = (_recordBufferTail + 1) % _recordBufferSize;
+    _recordBufferCount--;
+  }
+  xSemaphoreGive(_recordBufferLock);
+  return read;
 }
 
 bool Audio::writeWavHeader(File &file, uint32_t dataSize, uint32_t sampleRate,
@@ -759,22 +757,22 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
   }
 
   stopRecord();
-  if (!openCodec(sr, bits, ch, true, false)) {
-    AUDIO_LOGLN("startRecord failed: openCodec failed");
+  if (!openRecCodec(sr, bits, ch)) {
+    AUDIO_LOGLN("startRecord failed: openRecCodec failed");
     return false;
   }
 
   _recordFile = fs->open(normalizedPath.c_str(), FILE_WRITE, true);
   if (!_recordFile) {
     AUDIO_LOGLN("startRecord failed: open file failed");
-    closeCodec();
+    closeRecCodec();
     return false;
   }
 
   if (!initRecordBuffer(RECORD_RING_BUFFER_BYTES)) {
     AUDIO_LOGLN("startRecord failed: init record buffer failed");
     _recordFile.close();
-    closeCodec();
+    closeRecCodec();
     return false;
   }
 
@@ -787,14 +785,14 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
     AUDIO_LOGLN("startRecord failed: write header failed");
     _recordFile.close();
     deinitRecordBuffer();
-    closeCodec();
+    closeRecCodec();
     return false;
   }
 
   _recordStopRequested = false;
   _recordCaptureDone = false;
   _recordWriterDone = false;
-  if (xTaskCreatePinnedToCore(recordCaptureTaskEntry,
+  if (xTaskCreatePinnedToCore([](void *a){ static_cast<Audio*>(a)->recordCaptureTask(); vTaskDelete(nullptr); },
                               "audio_rec_cap",
                               4096,
                               this,
@@ -807,10 +805,10 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
     _recordWriterDone = true;
     _recordFile.close();
     deinitRecordBuffer();
-    closeCodec();
+    closeRecCodec();
     return false;
   }
-  if (xTaskCreatePinnedToCore(recordWriterTaskEntry,
+  if (xTaskCreatePinnedToCore([](void *a){ static_cast<Audio*>(a)->recordWriterTask(); vTaskDelete(nullptr); },
                               "audio_rec_wr",
                               4096,
                               this,
@@ -824,7 +822,7 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
     _recordWriterDone = true;
     _recordFile.close();
     deinitRecordBuffer();
-    closeCodec();
+    closeRecCodec();
     return false;
   }
 
@@ -865,7 +863,7 @@ void Audio::recordCaptureTask() {
   }
 
   while (!_recordStopRequested) {
-    int status = esp_codec_dev_read(_codecDev, buffer, (int)RECORD_BUFFER_BYTES);
+    int status = esp_codec_dev_read(_recDev, buffer, (int)RECORD_BUFFER_BYTES);
     if (status != ESP_CODEC_DEV_OK) {
       AUDIO_LOG("recordCaptureTask read failed: status=%d req=%u\n",
                 status,
@@ -901,8 +899,7 @@ void Audio::recordWriterTask() {
     return;
   }
 
-  while (!_recordStopRequested || !_recordCaptureDone ||
-         (_recordRingbuf && xRingbufferGetCurFreeSize(_recordRingbuf) < RECORD_RING_BUFFER_BYTES)) {
+  while (!_recordStopRequested || _recordBufferCount > 0 || !_recordCaptureDone) {
     size_t bytesRead = recordBufferRead(buffer, RECORD_BUFFER_BYTES);
     if (!bytesRead) {
       vTaskDelay(pdMS_TO_TICKS(2));
@@ -939,59 +936,12 @@ void Audio::stopRecord() {
     _recordFile.flush();
     _recordFile.close();
     deinitRecordBuffer();
-    closeCodec();
+    closeRecCodec();
     _recording = false;
   }
 }
 
 bool Audio::recording() const { return _recording; }
-
-esp_audio_simple_dec_type_t Audio::getDecoderType(const char *path) {
-  if (!path) return ESP_AUDIO_SIMPLE_DEC_TYPE_NONE;
-
-  const char *extension = strrchr(path, '.');
-  if (!extension) return ESP_AUDIO_SIMPLE_DEC_TYPE_NONE;
-  ++extension;
-
-  if (!strcasecmp(extension, "aac")) return ESP_AUDIO_SIMPLE_DEC_TYPE_AAC;
-  if (!strcasecmp(extension, "mp3")) return ESP_AUDIO_SIMPLE_DEC_TYPE_MP3;
-  if (!strcasecmp(extension, "flac")) return ESP_AUDIO_SIMPLE_DEC_TYPE_FLAC;
-  if (!strcasecmp(extension, "wav")) return ESP_AUDIO_SIMPLE_DEC_TYPE_WAV;
-  if (!strcasecmp(extension, "mp4") || !strcasecmp(extension, "m4a")) {
-    return ESP_AUDIO_SIMPLE_DEC_TYPE_M4A;
-  }
-  if (!strcasecmp(extension, "ts")) return ESP_AUDIO_SIMPLE_DEC_TYPE_TS;
-  return ESP_AUDIO_SIMPLE_DEC_TYPE_NONE;
-}
-
-esp_audio_simple_dec_type_t Audio::getDecoderTypeFromContentType(
-    const String &contentType) const {
-  String lowered = contentType;
-  lowered.toLowerCase();
-
-  if (lowered.indexOf("audio/mpeg") >= 0) return ESP_AUDIO_SIMPLE_DEC_TYPE_MP3;
-  if (lowered.indexOf("audio/aac") >= 0 ||
-      lowered.indexOf("audio/x-aac") >= 0 ||
-      lowered.indexOf("audio/aacp") >= 0) {
-    return ESP_AUDIO_SIMPLE_DEC_TYPE_AAC;
-  }
-  if (lowered.indexOf("audio/mp4") >= 0 ||
-      lowered.indexOf("audio/m4a") >= 0 ||
-      lowered.indexOf("audio/x-m4a") >= 0) {
-    return ESP_AUDIO_SIMPLE_DEC_TYPE_M4A;
-  }
-  if (lowered.indexOf("audio/flac") >= 0 ||
-      lowered.indexOf("audio/x-flac") >= 0) {
-    return ESP_AUDIO_SIMPLE_DEC_TYPE_FLAC;
-  }
-  if (lowered.indexOf("audio/wav") >= 0 ||
-      lowered.indexOf("audio/wave") >= 0 ||
-      lowered.indexOf("audio/x-wav") >= 0) {
-    return ESP_AUDIO_SIMPLE_DEC_TYPE_WAV;
-  }
-  if (lowered.indexOf("video/mp2t") >= 0) return ESP_AUDIO_SIMPLE_DEC_TYPE_TS;
-  return ESP_AUDIO_SIMPLE_DEC_TYPE_NONE;
-}
 
 void Audio::configureSimpleDecoder(esp_audio_simple_dec_cfg_t &cfg,
                                    uint8_t *storage,
@@ -1026,7 +976,11 @@ void Audio::configureSimpleDecoder(esp_audio_simple_dec_cfg_t &cfg,
   }
 }
 
+// 解码任务：从环形缓冲区读取压缩数据，解码后写入 codec DAC 输出。
+// 与 localReadTask / networkReadTask 并行运行，通过 AudioPlayContext
+// 中的环形缓冲区（生产者-消费者）解耦 IO 与解码。
 void Audio::playDecodeTask() {
+  // --- 阶段1：等待读取任务完成数据源初始化 ---
   AudioPlayContext *ctx = reinterpret_cast<AudioPlayContext *>(_playContext);
   if (!ctx) {
     _playDecodeTaskHandle = nullptr;
@@ -1034,6 +988,7 @@ void Audio::playDecodeTask() {
     return;
   }
 
+  // 读取任务异步初始化（打开文件/建立 HTTP 连接），等待其完成或失败
   while (!ctx->sourceReady && !ctx->stop && !_playStopRequested) {
     vTaskDelay(pdMS_TO_TICKS(2));
   }
@@ -1043,12 +998,19 @@ void Audio::playDecodeTask() {
     return;
   }
 
+  // --- 阶段2：注册并创建 simple decoder ---
+  // 解码器注册表是全局的，但在任务上下文中注册/注销更安全，避免 begin()/end() 的生命周期问题
+  esp_audio_dec_register_default();
+  esp_audio_simple_dec_register_default();
+
+  // decoderConfigStorage 作为 union 对齐存储，覆盖最大的子类型配置（esp_m4a_dec_cfg_t）
   uint8_t decoderConfigStorage[sizeof(esp_m4a_dec_cfg_t)] = {};
   esp_audio_simple_dec_cfg_t decoderConfig = {
       .dec_type = ctx->type,
       .dec_cfg = nullptr,
       .cfg_size = 0,
   };
+  // 根据格式填充特定配置（如 AAC/M4A/TS 启用 HE-AAC/aacPlus）
   configureSimpleDecoder(decoderConfig, decoderConfigStorage,
                          sizeof(decoderConfigStorage));
 
@@ -1060,14 +1022,14 @@ void Audio::playDecodeTask() {
     return;
   }
 
-  uint8_t *inputBuffer = (uint8_t *)malloc(PLAY_INPUT_BUFFER_BYTES);
-  uint8_t *outputBuffer = (uint8_t *)malloc(PLAY_OUTPUT_BUFFER_BYTES);
-  uint8_t *stereoBuffer = (uint8_t *)calloc(1, PLAY_OUTPUT_BUFFER_BYTES * 2);
-  if (!inputBuffer || !outputBuffer || !stereoBuffer) {
+  // --- 阶段3：分配 IO 缓冲区 ---
+  uint8_t *inputBuffer = (uint8_t *)malloc(PLAY_INPUT_BUFFER_BYTES);   // 从环形缓冲区读入的压缩数据
+  size_t outputBufferSize = PLAY_OUTPUT_BUFFER_BYTES;
+  uint8_t *outputBuffer = (uint8_t *)malloc(outputBufferSize);          // 解码器输出的 PCM 数据
+  if (!inputBuffer || !outputBuffer) {
     AUDIO_LOGLN("PlayDecodeTask failed: malloc failed");
     free(inputBuffer);
     free(outputBuffer);
-    free(stereoBuffer);
     esp_audio_simple_dec_close(decoder);
     _playStopRequested = true;
     _playDecodeTaskHandle = nullptr;
@@ -1075,48 +1037,59 @@ void Audio::playDecodeTask() {
   }
 
   bool ok = true;
-  bool codecOpened = false;
+  bool codecOpened = false;     // codec（I2S+ES8388）是否已按音频参数打开
   bool firstWriteLogged = false;
+  bool monoExpand = false;      // 解码器输出单声道时需要在写入前扩展为立体声
+  uint8_t *stereoBuffer = nullptr;  // 单声道扩展为立体声的临时缓冲区
+  size_t stereoBufferSize = 0;
   esp_audio_simple_dec_info_t simpleInfo = {};
   setPlayState(PLAY_STATE_PLAYING);
 
+  // --- 阶段4：主解码循环 ---
   while (!_playStopRequested) {
+    // 支持暂停：阻塞直到 resume() 或 stop()
     if (!waitWhilePaused()) break;
+
+    // 从环形缓冲区读取一批压缩数据；缓冲区空时短暂等待读取任务补充
     size_t bytesRead = playBufferRead(ctx, inputBuffer, PLAY_INPUT_BUFFER_BYTES);
     if (!bytesRead) {
-      if (ctx->readDone && ctx->count == 0) break;
+      if (ctx->readDone && ctx->count == 0) break;  // 数据源已耗尽，正常结束
       delay(2);
       continue;
     }
 
+    // raw 描述本批待解码的压缩数据；decoder 每次调用消费其中若干字节（raw.consumed）
     esp_audio_simple_dec_raw_t raw = {
         .buffer = inputBuffer,
         .len = (uint32_t)bytesRead,
-        .eos = ctx->readDone && ctx->count == 0,
+        .eos = ctx->readDone && ctx->count == 0,  // 文件/流末尾标志
         .consumed = 0,
         .frame_recover = ESP_AUDIO_SIMPLE_DEC_RECOVERY_NONE,
     };
 
+    // 内循环：一批输入数据可能包含多个压缩帧，循环直到全部消费完
     while (raw.len && !_playStopRequested) {
-      if (!waitWhilePaused()) break;
       esp_audio_simple_dec_out_t frame = {
           .buffer = outputBuffer,
-          .len = PLAY_OUTPUT_BUFFER_BYTES,
+          .len = (uint32_t)outputBufferSize,
           .needed_size = 0,
           .decoded_size = 0,
       };
 
       esp_audio_err_t err = esp_audio_simple_dec_process(decoder, &raw, &frame);
+
+      // 输出缓冲区不足：按解码器要求扩容后重试（不移动 raw 指针，重新解码同一帧）
       if (err == ESP_AUDIO_ERR_BUFF_NOT_ENOUGH) {
-        uint8_t *resizedBuffer = (uint8_t *)realloc(outputBuffer, frame.needed_size);
-        if (!resizedBuffer) {
+        uint8_t *resizedOutput = (uint8_t *)realloc(outputBuffer, frame.needed_size);
+        if (!resizedOutput) {
           AUDIO_LOGLN("PlayDecodeTask failed: realloc failed");
           ok = false;
           _playStopRequested = true;
           break;
         }
-        outputBuffer = resizedBuffer;
-        continue;
+        outputBuffer = resizedOutput;
+        outputBufferSize = frame.needed_size;
+        continue;  // 用新缓冲区重试，raw 不变
       }
       if (err != ESP_AUDIO_ERR_OK) {
         AUDIO_LOG("PlayDecodeTask decode failed: err=%d raw.len=%lu consumed=%lu\n",
@@ -1128,22 +1101,24 @@ void Audio::playDecodeTask() {
         break;
       }
 
+      // 推进输入指针，跳过已消费字节
       raw.buffer += raw.consumed;
       raw.len -= raw.consumed;
 
       if (frame.decoded_size > 0) {
-        size_t writeSize = frame.decoded_size;
-        uint8_t *writeBuffer = outputBuffer;
-        uint8_t bitsPerSample = simpleInfo.bits_per_sample;
-        uint8_t channels = simpleInfo.channel ? simpleInfo.channel : 2;
-
+        // --- 首帧：读取音频参数并打开 codec ---
+        // simple decoder 在解码出第一帧后才能提供准确的 sample_rate/bits/channel，
+        // 因此 codec（I2S 时钟、ES8388 采样率）延迟到此处才配置。
         if (!codecOpened) {
           if (esp_audio_simple_dec_get_info(decoder, &simpleInfo) != ESP_AUDIO_ERR_OK) {
+            // 极少数情况下首帧信息尚未就绪，跳过本帧等待下一帧
             AUDIO_LOGLN("PlayDecodeTask waiting decoder info");
             continue;
           }
-          bitsPerSample = simpleInfo.bits_per_sample;
-          channels = simpleInfo.channel ? simpleInfo.channel : 2;
+          uint8_t bitsPerSample = simpleInfo.bits_per_sample;
+          uint8_t channels = simpleInfo.channel ? simpleInfo.channel : 2;
+          // 防御：极少数解码器实现中 bits_per_sample 与 channel 字段顺序错误，
+          // 通过不合理值组合（bits=1/2 且 channel=8/16/24/32）检测并互换
           if ((bitsPerSample == 1 || bitsPerSample == 2) &&
               (channels == 8 || channels == 16 || channels == 24 || channels == 32)) {
             uint8_t swapped = bitsPerSample;
@@ -1154,15 +1129,10 @@ void Audio::playDecodeTask() {
                     (unsigned long)simpleInfo.sample_rate,
                     bitsPerSample,
                     channels);
-<<<<<<< HEAD
           // 按实际音频参数配置 I2S 时钟和 ES8388 DAC
           // channel=1 时 esp_codec_dev 内部自动设置 I2S slot mask，无需手动扩展为立体声
           if (!openPlayCodec(simpleInfo.sample_rate, bitsPerSample, channels)) {
-            AUDIO_LOGLN("PlayDecodeTask OpenPlayCodec failed");
-=======
-          if (!openCodec(simpleInfo.sample_rate, bitsPerSample, channels, false, true)) {
-            AUDIO_LOGLN("PlayDecodeTask openCodec failed");
->>>>>>> parent of cf57795 (试图解决音频噪音问题:)
+            AUDIO_LOGLN("PlayDecodeTask openPlayCodec failed");
             ok = false;
             _playStopRequested = true;
             break;
@@ -1170,42 +1140,27 @@ void Audio::playDecodeTask() {
           simpleInfo.bits_per_sample = bitsPerSample;
           simpleInfo.channel = channels;
           codecOpened = true;
-        }
 
-        bitsPerSample = simpleInfo.bits_per_sample;
-        channels = simpleInfo.channel ? simpleInfo.channel : 2;
-        if (channels == 1) {
-          memset(stereoBuffer, 0, PLAY_OUTPUT_BUFFER_BYTES * 2);
-          writeSize = expandMonoToStereo(outputBuffer,
-                                         frame.decoded_size,
-                                         bitsPerSample,
-                                         stereoBuffer,
-                                         PLAY_OUTPUT_BUFFER_BYTES * 2);
-          if (!writeSize) {
-            AUDIO_LOG("PlayDecodeTask mono expand failed: decoded_size=%lu bits=%u\n",
-                      (unsigned long)frame.decoded_size,
-                      bitsPerSample);
-            ok = false;
-            _playStopRequested = true;
-            break;
-          }
-          writeBuffer = stereoBuffer;
+          // I2S PLL 重新锁定需要几个周期，等待时钟稳定后再写入 PCM，
+          // 避免 TX DMA 在 clock 不稳期间输出噪声。
+          // 丢弃这一帧（解码已完成，仅跳过写入），下一帧时钟已稳定。
+          AUDIO_LOGLN("PlayDecodeTask codec opened, dropping first frame to let I2S PLL settle");
+          vTaskDelay(pdMS_TO_TICKS(10));
+          continue;
         }
 
         if (!firstWriteLogged) {
-          AUDIO_LOG("PlayDecodeTask first write: decoded_size=%lu write_size=%lu src_ch=%u codec=%p buf=%p\n",
+          AUDIO_LOG("PlayDecodeTask first write: decoded_size=%lu ch=%u codec=%p\n",
                     (unsigned long)frame.decoded_size,
-                    (unsigned long)writeSize,
-                    channels,
-                    _codecDev,
-                    writeBuffer);
+                    simpleInfo.channel,
+                    _playDev);
           firstWriteLogged = true;
         }
 
-        if (esp_codec_dev_write(_codecDev, writeBuffer, writeSize) != ESP_CODEC_DEV_OK) {
-          AUDIO_LOG("PlayDecodeTask write failed: decoded_size=%lu write_size=%lu\n",
-                    (unsigned long)frame.decoded_size,
-                    (unsigned long)writeSize);
+        // 将解码后的 PCM 写入 I2S DMA，阻塞直到 DMA 接受数据（天然背压）
+        if (esp_codec_dev_write(_playDev, frame.buffer, (int)frame.decoded_size) != ESP_CODEC_DEV_OK) {
+          AUDIO_LOG("PlayDecodeTask write failed: decoded_size=%lu\n",
+                    (unsigned long)frame.decoded_size);
           ok = false;
           _playStopRequested = true;
           break;
@@ -1214,12 +1169,18 @@ void Audio::playDecodeTask() {
     }
   }
 
+  // --- 阶段5：清理资源 ---
   free(inputBuffer);
   free(outputBuffer);
-  free(stereoBuffer);
   esp_audio_simple_dec_close(decoder);
-  closeCodec();
+  closePlayCodec();  // 关闭 I2S + ES8388
 
+  // 注销解码器（与阶段2对应）
+  esp_audio_simple_dec_unregister_default();
+  esp_audio_dec_unregister_default();
+
+  // 释放播放上下文（环形缓冲区、互斥锁）
+  // 检查指针防止 stop() 已抢先释放
   AudioPlayContext *doneCtx = reinterpret_cast<AudioPlayContext *>(_playContext);
   if (doneCtx == ctx) {
     _playContext = nullptr;
@@ -1227,8 +1188,9 @@ void Audio::playDecodeTask() {
     free(doneCtx->buf);
     delete doneCtx;
   }
+  // 根据退出原因更新播放状态
   if (_playStopRequested) setPlayState(PLAY_STATE_STOPPED);
-  else if (ok) setPlayState(PLAY_STATE_IDLE);
+  else if (ok) setPlayState(PLAY_STATE_IDLE);  // 正常播完
   else setPlayState(PLAY_STATE_ERROR);
   _playReadTaskHandle = nullptr;
   _playDecodeTaskHandle = nullptr;
@@ -1267,27 +1229,10 @@ bool Audio::play(const char *path) {
 
   TaskFunction_t readTask = sourceIsUrl ? networkReadTask : localReadTask;
   const char *readTaskName = sourceIsUrl ? "networkReadTask" : "localReadTask";
-<<<<<<< HEAD
-  uint32_t readTaskStackSize = sourceIsUrl ? 24576 : 4096;  // 网络任务需要更大栈空间（HTTPClient + WiFiClientSecure）
-    if (xTaskCreatePinnedToCore(readTask,
-                                readTaskName,
-                                readTaskStackSize,
-                                ctx,
-                                2,
-                                &_playReadTaskHandle,
-                                0) != pdPASS) {
-      _playReadTaskHandle = nullptr;
-      _playContext = nullptr;
-      vSemaphoreDelete(ctx->lock);
-      free(ctx->buf);
-      delete ctx;
-      setPlayState(PLAY_STATE_ERROR);
-      return false;
-    }
-=======
+  uint32_t readTaskStackSize = sourceIsUrl ? 10240 : 4096;  // 网络任务需要更大栈空间（HTTPClient + WiFiClientSecure）
   if (xTaskCreatePinnedToCore(readTask,
                               readTaskName,
-                              4096,
+                              readTaskStackSize,
                               ctx,
                               2,
                               &_playReadTaskHandle,
@@ -1300,10 +1245,9 @@ bool Audio::play(const char *path) {
     setPlayState(PLAY_STATE_ERROR);
     return false;
   }
->>>>>>> parent of cf57795 (试图解决音频噪音问题:)
   ctx->readTaskHandle = _playReadTaskHandle;
 
-  if (xTaskCreatePinnedToCore(playDecodeTaskEntry,
+  if (xTaskCreatePinnedToCore([](void *a){ static_cast<Audio*>(a)->playDecodeTask(); vTaskDelete(nullptr); },
                               "PlayDecodeTask",
                               8192,
                               this,
@@ -1363,7 +1307,7 @@ void Audio::stop() {
   }
   _playReadTaskHandle = nullptr;
   _playDecodeTaskHandle = nullptr;
-  closeCodec();
+  closePlayCodec();
   setPlayState(PLAY_STATE_STOPPED);
 }
 
