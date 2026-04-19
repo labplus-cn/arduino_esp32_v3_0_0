@@ -4,7 +4,7 @@ constexpr char kWiFiSsid[] = "YOUR_WIFI_SSID";
 constexpr char kWiFiPassword[] = "YOUR_WIFI_PASSWORD";
 
 constexpr char kAudioUrl[] =
-    "https://dl.espressif.com/dl/audio/gs-16b-2c-44100hz.mp3";
+    // "https://dl.espressif.com/dl/audio/gs-16b-2c-44100hz.mp3";
     "http://cdn.makeymonkey.com/test/32_%E6%8B%94%E8%90%9D%E5%8D%9C.mp3";
 
 uint8_t kPlayVolume = 60;
