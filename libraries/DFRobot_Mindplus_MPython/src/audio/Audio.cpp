@@ -582,9 +582,6 @@ bool Audio::openRecCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
   }
 
   int mclkMultiple = 256;
-  if (sr == 11025 || sr == 22050 || sr == 44100) {
-    mclkMultiple = 384;
-  }
 
   esp_codec_dev_sample_info_t sampleInfo = {
       .bits_per_sample = bits,
