@@ -350,12 +350,7 @@ Audio::Audio()
       _recordWriterDone(true),
       _recordCaptureTaskHandle(nullptr),
       _recordWriterTaskHandle(nullptr),
-      _recordBuffer(nullptr),
-      _recordBufferSize(0),
-      _recordBufferHead(0),
-      _recordBufferTail(0),
-      _recordBufferCount(0),
-      _recordBufferLock(nullptr),
+      _recordRingbuf(nullptr),
       _volume(DEFAULT_VOLUME),
       _micGain(35.0f),
       _recordFs(nullptr),
@@ -617,57 +612,49 @@ bool Audio::setMicGain(float gain) {
 
 bool Audio::initRecordBuffer(size_t bufferSize) {
   deinitRecordBuffer();
-  _recordBuffer = (uint8_t *)malloc(bufferSize);
-  if (!_recordBuffer) return false;
-  _recordBufferLock = xSemaphoreCreateMutex();
-  if (!_recordBufferLock) {
-    free(_recordBuffer);
-    _recordBuffer = nullptr;
-    return false;
-  }
-  _recordBufferSize = bufferSize;
-  _recordBufferHead = 0;
-  _recordBufferTail = 0;
-  _recordBufferCount = 0;
-  return true;
+  // RINGBUF_TYPE_BYTEBUF：无头部开销，字节流语义，天然线程安全，无需额外 mutex
+  _recordRingbuf = xRingbufferCreate(bufferSize, RINGBUF_TYPE_BYTEBUF);
+  return _recordRingbuf != nullptr;
 }
 
 void Audio::deinitRecordBuffer() {
-  if (_recordBufferLock) {
-    vSemaphoreDelete(_recordBufferLock);
-    _recordBufferLock = nullptr;
+  if (_recordRingbuf) {
+    vRingbufferDelete(_recordRingbuf);
+    _recordRingbuf = nullptr;
   }
-  free(_recordBuffer);
-  _recordBuffer = nullptr;
-  _recordBufferSize = 0;
-  _recordBufferHead = 0;
-  _recordBufferTail = 0;
-  _recordBufferCount = 0;
 }
 
 size_t Audio::recordBufferWrite(const uint8_t *src, size_t len) {
-  size_t written = 0;
-  if (!_recordBuffer || !_recordBufferLock || !src || !len) return 0;
-  if (xSemaphoreTake(_recordBufferLock, pdMS_TO_TICKS(10)) != pdTRUE) return 0;
-  while (written < len && _recordBufferCount < _recordBufferSize) {
-    _recordBuffer[_recordBufferHead] = src[written++];
-    _recordBufferHead = (_recordBufferHead + 1) % _recordBufferSize;
-    _recordBufferCount = _recordBufferCount + 1;
+  if (!_recordRingbuf || !src || !len) return 0;
+  // 等待最多 10ms；缓冲区满时丢弃本次数据（采集任务不应长期阻塞）
+  if (xRingbufferSend(_recordRingbuf, src, len, pdMS_TO_TICKS(10)) == pdTRUE) {
+    return len;
   }
-  xSemaphoreGive(_recordBufferLock);
+  // 缓冲区已满：写入尽可能多的字节（逐块尝试，直到无可用空间）
+  size_t written = 0;
+  while (written < len) {
+    size_t free = xRingbufferGetCurFreeSize(_recordRingbuf);
+    if (free == 0) break;
+    size_t chunk = (len - written) < free ? (len - written) : free;
+    if (xRingbufferSend(_recordRingbuf, src + written, chunk, 0) != pdTRUE) break;
+    written += chunk;
+  }
   return written;
 }
 
 size_t Audio::recordBufferRead(uint8_t *dst, size_t len) {
+  if (!_recordRingbuf || !dst || !len) return 0;
   size_t read = 0;
-  if (!_recordBuffer || !_recordBufferLock || !dst || !len) return 0;
-  if (xSemaphoreTake(_recordBufferLock, pdMS_TO_TICKS(10)) != pdTRUE) return 0;
-  while (read < len && _recordBufferCount > 0) {
-    dst[read++] = _recordBuffer[_recordBufferTail];
-    _recordBufferTail = (_recordBufferTail + 1) % _recordBufferSize;
-    _recordBufferCount = _recordBufferCount - 1;
+  while (read < len) {
+    size_t itemSize = 0;
+    // xRingbufferReceiveUpTo 最多取 (len-read) 字节，立即返回（timeout=0）
+    void *item = xRingbufferReceiveUpTo(_recordRingbuf, &itemSize,
+                                        pdMS_TO_TICKS(10), len - read);
+    if (!item) break;
+    memcpy(dst + read, item, itemSize);
+    vRingbufferReturnItem(_recordRingbuf, item);
+    read += itemSize;
   }
-  xSemaphoreGive(_recordBufferLock);
   return read;
 }
 
@@ -889,7 +876,8 @@ void Audio::recordWriterTask() {
     return;
   }
 
-  while (!_recordStopRequested || _recordBufferCount > 0 || !_recordCaptureDone) {
+  while (!_recordStopRequested || !_recordCaptureDone ||
+         xRingbufferGetCurFreeSize(_recordRingbuf) < RECORD_RING_BUFFER_BYTES) {
     size_t bytesRead = recordBufferRead(buffer, RECORD_BUFFER_BYTES);
     if (!bytesRead) {
       vTaskDelay(pdMS_TO_TICKS(2));

@@ -7,6 +7,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
+#include <freertos/ringbuf.h>
 #include "audio/esp_codec_dev/include/esp_codec_dev.h"
 #include "audio/esp_codec_dev/include/esp_codec_dev_defaults.h"
 #include "audio/esp_codec_dev/interface/audio_codec_gpio_if.h"
@@ -87,12 +88,7 @@ private:
     volatile bool _recordWriterDone;
     TaskHandle_t _recordCaptureTaskHandle;
     TaskHandle_t _recordWriterTaskHandle;
-    uint8_t *_recordBuffer;
-    size_t _recordBufferSize;
-    volatile size_t _recordBufferHead;
-    volatile size_t _recordBufferTail;
-    volatile size_t _recordBufferCount;
-    SemaphoreHandle_t _recordBufferLock;
+    RingbufHandle_t _recordRingbuf;  // esp_ringbuf BYTEBUF，替代手写环形缓冲区
 
     uint8_t _volume;
     float _micGain;
