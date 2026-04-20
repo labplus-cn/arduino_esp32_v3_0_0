@@ -86,8 +86,7 @@ private:
     const audio_codec_ctrl_if_t *_ctrlIf;
     const audio_codec_data_if_t *_dataIf;
     const audio_codec_if_t *_codecIf;
-    esp_codec_dev_handle_t _playDev;   // 仅用于播放（OUT）
-    esp_codec_dev_handle_t _recDev;    // 仅用于录音（IN）
+    esp_codec_dev_handle_t _codecDev;   // 录音+播放一体设备（IN_OUT）
 
     bool _begun;
     bool _recording;
@@ -108,14 +107,10 @@ private:
     TaskHandle_t _recordWriterTaskHandle;
     RingbufHandle_t _recordRingbuf;  // esp_ringbuf BYTEBUF，替代手写环形缓冲区
 
-    bool _playCodecOpened;
-    bool _recCodecOpened;
-    uint32_t _playSampleRate;
-    uint8_t _playBitsPerSample;
-    uint8_t _playChannels;
-    uint32_t _recSampleRate;
-    uint8_t _recBitsPerSample;
-    uint8_t _recChannels;
+    bool _codecDeviceOpened;
+    uint32_t _codecSampleRate;
+    uint8_t _codecBitsPerSample;
+    uint8_t _codecChannels;
 
     uint8_t _volume;
     float _micGain;
@@ -134,10 +129,8 @@ private:
     bool codecCreate();
     void codecDestroy();
 
-    bool openPlayCodec(uint32_t sampleRate, uint8_t bitsPerSample, uint8_t channels);
-    void closePlayCodec();
-    bool openRecCodec(uint32_t sampleRate, uint8_t bitsPerSample, uint8_t channels);
-    void closeRecCodec();
+    bool openCodecDevice(uint32_t sampleRate, uint8_t bitsPerSample, uint8_t channels);
+    void closeCodecDevice();
 
     bool writeWavHeader(File &file, uint32_t dataSize, uint32_t sampleRate, uint8_t bitsPerSample, uint8_t channels);
     bool finalizeWavHeader();

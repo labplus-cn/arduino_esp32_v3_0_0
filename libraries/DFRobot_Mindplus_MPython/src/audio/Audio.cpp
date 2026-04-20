@@ -373,8 +373,7 @@ Audio::Audio()
       _ctrlIf(nullptr),
       _dataIf(nullptr),
       _codecIf(nullptr),
-      _playDev(nullptr),
-      _recDev(nullptr),
+      _codecDev(nullptr),
       _begun(false),
       _recording(false),
       _playState(PLAY_STATE_IDLE),
@@ -391,14 +390,10 @@ Audio::Audio()
       _recordCaptureTaskHandle(nullptr),
       _recordWriterTaskHandle(nullptr),
       _recordRingbuf(nullptr),
-      _playCodecOpened(false),
-      _recCodecOpened(false),
-      _playSampleRate(0),
-      _playBitsPerSample(0),
-      _playChannels(0),
-      _recSampleRate(0),
-      _recBitsPerSample(0),
-      _recChannels(0),
+      _codecDeviceOpened(false),
+      _codecSampleRate(0),
+      _codecBitsPerSample(0),
+      _codecChannels(0),
       _volume(DEFAULT_VOLUME),
       _micGain(35.0f),
       _recordFs(nullptr),
@@ -538,8 +533,8 @@ void Audio::ttsTask(void *arg) {
     return;
   }
   
-  if (!audio->openPlayCodec(16000, 16, 1)) {
-    AUDIO_LOGLN("ttsTask failed: openPlayCodec failed");
+  if (!audio->openCodecDevice(16000, 16, 1)) {
+    AUDIO_LOGLN("ttsTask failed: OpenCodecDevice failed");
     xSemaphoreGive(audio->_ttsSemaphore);
     free(params);
     vTaskDelete(nullptr);
@@ -551,14 +546,14 @@ void Audio::ttsTask(void *arg) {
       do {
           short *pcm = esp_tts_stream_play(audio->_ttsHandle, &len, 0);
           if(len > 0){
-              esp_codec_dev_write(audio->_playDev, (int8_t *)pcm, len * 2);
+              esp_codec_dev_write(audio->_codecDev, (int8_t *)pcm, len * 2);
           }
       } while (len > 0);
   }
   
   // 清理资源
   esp_tts_stream_reset(audio->_ttsHandle);
-  // audio->closePlayCodec();
+  // audio->closeCodecDevice();
   xSemaphoreGive(audio->_ttsSemaphore);
   free(params);
   vTaskDelete(nullptr);
@@ -636,32 +631,20 @@ bool Audio::codecCreate() {
   if (!_codecIf) return false;
 
   esp_codec_dev_cfg_t playDevConfig = {
-      .dev_type = ESP_CODEC_DEV_TYPE_OUT,
+      .dev_type = ESP_CODEC_DEV_TYPE_IN_OUT,
       .codec_if = _codecIf,
       .data_if = _dataIf,
   };
-  _playDev = esp_codec_dev_new(&playDevConfig);
-  if (!_playDev) return false;
-
-  esp_codec_dev_cfg_t recDevConfig = {
-      .dev_type = ESP_CODEC_DEV_TYPE_IN,
-      .codec_if = _codecIf,
-      .data_if = _dataIf,
-  };
-  _recDev = esp_codec_dev_new(&recDevConfig);
-  return _recDev != nullptr;
+  _codecDev = esp_codec_dev_new(&playDevConfig);
+  return _codecDev != nullptr;
 }
 void Audio::codecDestroy() {
-  closePlayCodec();
-  closeRecCodec();
+  closeCodecDevice();
+  closeCodecDevice();
 
-  if (_playDev) {
-    esp_codec_dev_delete(_playDev);
-    _playDev = nullptr;
-  }
-  if (_recDev) {
-    esp_codec_dev_delete(_recDev);
-    _recDev = nullptr;
+  if (_codecDev) {
+    esp_codec_dev_delete(_codecDev);
+    _codecDev = nullptr;
   }
   if (_codecIf) {
     audio_codec_delete_codec_if(_codecIf);
@@ -719,10 +702,38 @@ void Audio::end() {
   _begun = false;
 }
 
-bool Audio::openPlayCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
-  if (!_playDev) {
-    AUDIO_LOGLN("openPlayCodec failed: _playDev is null");
+bool Audio::openCodecDevice(uint32_t sr, uint8_t bits, uint8_t ch) {
+  if (!_codecDev) {
+    AUDIO_LOGLN("codec device open failed: _codecDev is null");
     return false;
+  }
+
+  bool needReopen = _codecDeviceOpened &&
+                    (_codecSampleRate != sr ||
+                     _codecBitsPerSample != bits ||
+                     _codecChannels != ch);
+  if (needReopen) {
+    AUDIO_LOG("codec device reopen: %lu/%u/%u -> %lu/%u/%u\n",
+        (unsigned long)_codecSampleRate,
+        _codecBitsPerSample,
+        _codecChannels,
+        (unsigned long)sr,
+        bits,
+        ch);
+    closeCodecDevice();
+  } else if (_codecDeviceOpened) {
+    AUDIO_LOG("codec device reuse: %lu/%u/%u\n",
+        (unsigned long)_codecSampleRate,
+        _codecBitsPerSample,
+        _codecChannels);
+    esp_codec_dev_set_out_vol(_codecDev, _volume);
+    esp_codec_dev_set_in_gain(_codecDev, _micGain);
+    return true;
+  } else {
+    AUDIO_LOG("codec device first open: %lu/%u/%u\n",
+        (unsigned long)sr,
+        bits,
+        ch);
   }
 
   esp_codec_dev_sample_info_t sampleInfo = {
@@ -733,64 +744,41 @@ bool Audio::openPlayCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
       .mclk_multiple = 256,
   };
 
-  AUDIO_LOG("openPlayCodec(sr=%lu, bits=%u, ch=%u) mclk=%d\n",
+  AUDIO_LOG("codec device apply params: sr=%lu, bits=%u, ch=%u, mclk=%d\n",
       (unsigned long)sr, bits, ch, sampleInfo.mclk_multiple);
 
-  int status = esp_codec_dev_open(_playDev, &sampleInfo);
+  int status = esp_codec_dev_open(_codecDev, &sampleInfo);
   if (status != ESP_CODEC_DEV_OK) {
-    AUDIO_LOG("openPlayCodec failed: status=%d\n", status);
+    AUDIO_LOG("codec device open failed: status=%d\n", status);
     return false;
   }
-  esp_codec_dev_set_out_vol(_playDev, _volume);
+  _codecDeviceOpened = true;
+  _codecSampleRate = sr;
+  _codecBitsPerSample = bits;
+  _codecChannels = ch;
+  esp_codec_dev_set_out_vol(_codecDev, _volume);
+  esp_codec_dev_set_in_gain(_codecDev, _micGain);
   return true;
 }
 
-void Audio::closePlayCodec() {
-  if (_playDev) esp_codec_dev_close(_playDev);
-}
-
-bool Audio::openRecCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
-  if (!_recDev) {
-    AUDIO_LOGLN("openRecCodec failed: _recDev is null");
-    return false;
-  }
-
-  int mclkMultiple = 256;
-
-  esp_codec_dev_sample_info_t sampleInfo = {
-      .bits_per_sample = bits,
-      .channel = ch,
-      .channel_mask = 0,
-      .sample_rate = sr,
-      .mclk_multiple = mclkMultiple,
-  };
-
-  AUDIO_LOG("openRecCodec(sr=%lu, bits=%u, ch=%u) mclk=%d\n",
-      (unsigned long)sr, bits, ch, sampleInfo.mclk_multiple);
-
-  int status = esp_codec_dev_open(_recDev, &sampleInfo);
-  if (status != ESP_CODEC_DEV_OK) {
-    AUDIO_LOG("openRecCodec failed: status=%d\n", status);
-    return false;
-  }
-  esp_codec_dev_set_in_gain(_recDev, _micGain);
-  return true;
-}
-
-void Audio::closeRecCodec() {
-  if (_recDev) esp_codec_dev_close(_recDev);
+void Audio::closeCodecDevice() {
+  if (_codecDev) esp_codec_dev_close(_codecDev);
+  _codecDeviceOpened = false;
+  _codecSampleRate = 0;
+  _codecBitsPerSample = 0;
+  _codecChannels = 0;
 }
 
 bool Audio::setVolume(uint8_t volume) {
   _volume = volume > 100 ? 100 : volume;
-  return !_playDev ||
-         esp_codec_dev_set_out_vol(_playDev, _volume) == ESP_CODEC_DEV_OK;
+  return !_codecDev ||
+         esp_codec_dev_set_out_vol(_codecDev, _volume) == ESP_CODEC_DEV_OK;
 }
 
 bool Audio::setMicGain(float gain) {
   _micGain = gain;
-  return !_recDev ||
-         esp_codec_dev_set_in_gain(_recDev, _micGain) == ESP_CODEC_DEV_OK;
+  return !_codecDev ||
+         esp_codec_dev_set_in_gain(_codecDev, _micGain) == ESP_CODEC_DEV_OK;
 }
 
 bool Audio::initRecordBuffer(size_t bufferSize) {
@@ -922,22 +910,22 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
   }
 
   stopRecord();
-  if (!openRecCodec(sr, bits, ch)) {
-    AUDIO_LOGLN("startRecord failed: openRecCodec failed");
+  if (!openCodecDevice(sr, bits, ch)) {
+    AUDIO_LOGLN("startRecord failed: OpenCodecDevice failed");
     return false;
   }
 
   _recordFile = fs->open(normalizedPath.c_str(), FILE_WRITE, true);
   if (!_recordFile) {
     AUDIO_LOGLN("startRecord failed: open file failed");
-    closeRecCodec();
+    closeCodecDevice();
     return false;
   }
 
   if (!initRecordBuffer(RECORD_RING_BUFFER_BYTES)) {
     AUDIO_LOGLN("startRecord failed: init record buffer failed");
     _recordFile.close();
-    closeRecCodec();
+    closeCodecDevice();
     return false;
   }
 
@@ -950,7 +938,7 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
     AUDIO_LOGLN("startRecord failed: write header failed");
     _recordFile.close();
     deinitRecordBuffer();
-    closeRecCodec();
+    closeCodecDevice();
     return false;
   }
 
@@ -970,7 +958,7 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
     _recordWriterDone = true;
     _recordFile.close();
     deinitRecordBuffer();
-    closeRecCodec();
+    closeCodecDevice();
     return false;
   }
   if (xTaskCreatePinnedToCore([](void *a){ static_cast<Audio*>(a)->recordWriterTask(); vTaskDelete(nullptr); },
@@ -987,7 +975,7 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
     _recordWriterDone = true;
     _recordFile.close();
     deinitRecordBuffer();
-    closeRecCodec();
+    closeCodecDevice();
     return false;
   }
 
@@ -1028,7 +1016,7 @@ void Audio::recordCaptureTask() {
   }
 
   while (!_recordStopRequested) {
-    int status = esp_codec_dev_read(_recDev, buffer, (int)RECORD_BUFFER_BYTES);
+    int status = esp_codec_dev_read(_codecDev, buffer, (int)RECORD_BUFFER_BYTES);
     if (status != ESP_CODEC_DEV_OK) {
       AUDIO_LOG("recordCaptureTask read failed: status=%d req=%u\n",
                 status,
@@ -1102,7 +1090,7 @@ void Audio::stopRecord() {
     _recordFile.flush();
     _recordFile.close();
     deinitRecordBuffer();
-    closeRecCodec();
+    closeCodecDevice();
     _recording = false;
   }
 }
@@ -1293,8 +1281,8 @@ void Audio::playDecodeTask() {
                     channels);
           // 按实际音频参数配置 I2S 时钟和 ES8388 DAC
           // channel=1 时 esp_codec_dev 内部自动设置 I2S slot mask，无需手动扩展为立体声
-          if (!openPlayCodec(simpleInfo.sample_rate, bitsPerSample, channels)) {
-            AUDIO_LOGLN("PlayDecodeTask openPlayCodec failed");
+          if (!openCodecDevice(simpleInfo.sample_rate, bitsPerSample, channels)) {
+            AUDIO_LOGLN("PlayDecodeTask OpenCodecDevice failed");
             ok = false;
             _playStopRequested = true;
             break;
@@ -1315,12 +1303,12 @@ void Audio::playDecodeTask() {
           AUDIO_LOG("PlayDecodeTask first write: decoded_size=%lu ch=%u codec=%p\n",
                     (unsigned long)frame.decoded_size,
                     simpleInfo.channel,
-                    _playDev);
+                    _codecDev);
           firstWriteLogged = true;
         }
 
         // 将解码后的 PCM 写入 I2S DMA，阻塞直到 DMA 接受数据（天然背压）
-        if (esp_codec_dev_write(_playDev, frame.buffer, (int)frame.decoded_size) != ESP_CODEC_DEV_OK) {
+        if (esp_codec_dev_write(_codecDev, frame.buffer, (int)frame.decoded_size) != ESP_CODEC_DEV_OK) {
           AUDIO_LOG("PlayDecodeTask write failed: decoded_size=%lu\n",
                     (unsigned long)frame.decoded_size);
           ok = false;
@@ -1335,7 +1323,7 @@ void Audio::playDecodeTask() {
   free(inputBuffer);
   free(outputBuffer);
   esp_audio_simple_dec_close(decoder);
-  closePlayCodec();  // 关闭 I2S + ES8388
+  closeCodecDevice();  // 关闭 I2S + ES8388
 
   // 注销解码器（与阶段2对应）
   esp_audio_simple_dec_unregister_default();
@@ -1469,7 +1457,7 @@ void Audio::stop() {
   }
   _playReadTaskHandle = nullptr;
   _playDecodeTaskHandle = nullptr;
-  closePlayCodec();
+  closeCodecDevice();
   setPlayState(PLAY_STATE_STOPPED);
 }
 
@@ -1505,7 +1493,7 @@ void Audio::srFeedTask() {
     return;
   }
   while (_srTaskFlag) {
-    if (esp_codec_dev_read(_recDev, buf, (int)bytes) != ESP_CODEC_DEV_OK) {
+    if (esp_codec_dev_read(_codecDev, buf, (int)bytes) != ESP_CODEC_DEV_OK) {
       vTaskDelay(pdMS_TO_TICKS(5));
       continue;
     }
@@ -1575,19 +1563,24 @@ void Audio::srDetectTask() {
       break;
     }
 
-    if (res->wakeup_state == WAKENET_DETECTED) {
-      if (_srWakeupFlag == 0) {
-        multinet->clean(model_data);
-        afe->disable_wakenet(afe_data);
+    bool enterCommandMode = false;
+    if (_srWakeupFlag == 0) {
+      if (res->wakeup_state == WAKENET_DETECTED) {
+        enterCommandMode = true;
         if (!_ttsInitialized && !ttsInit()) {
           AUDIO_LOGLN("SR wake detected: ttsInit failed");
         } else {
           textToSpeech(_srWakeupReplyTts.c_str());
         }
+      } else if (res->wakeup_state == WAKENET_CHANNEL_VERIFIED) {
+        enterCommandMode = true;
       }
-      _srWakeupFlag = 1;
-    } else if (res->wakeup_state == WAKENET_CHANNEL_VERIFIED) {
-      _srWakeupFlag = 1;
+
+      if (enterCommandMode) {
+        multinet->clean(model_data);
+        afe->disable_wakenet(afe_data);
+        _srWakeupFlag = 1;
+      }
     }
 
     if (_srWakeupFlag == 1) {
@@ -1599,13 +1592,17 @@ void Audio::srDetectTask() {
         esp_mn_results_t *mn_result = multinet->get_results(model_data);
         if (mn_result && mn_result->num > 0) {
           _srLatestCommandId = mn_result->command_id[0];
-          afe->enable_wakenet(afe_data);
-          _srWakeupFlag = 0;
         }
+        multinet->clean(model_data);
+        afe->enable_wakenet(afe_data);
+        _srWakeupFlag = 0;
+        AUDIO_LOGLN("_srWakeupFlag clean");
         continue;
       }
       if (mn_state == ESP_MN_STATE_TIMEOUT) {
+        multinet->clean(model_data);
         afe->enable_wakenet(afe_data);
+        AUDIO_LOGLN("_srWakeupFlag clean1");
         _srWakeupFlag = 0;
         continue;
       }
@@ -1647,8 +1644,7 @@ bool Audio::speechRecognitionDeinitInternal() {
   }
   _srMultinet = nullptr;
   _srMnModel = nullptr;
-  closePlayCodec();
-  closeRecCodec();
+  closeCodecDevice();
   if (_srDoneEvent) {
     vEventGroupDelete(_srDoneEvent);
     _srDoneEvent = nullptr;
@@ -1665,7 +1661,7 @@ bool Audio::srBegin(const char *wakeupReplyTts,
     AUDIO_LOGLN("SR begin: file recording active");
     return false;
   }
-  if ((!_begun && !begin()) || !_recDev) return false;
+  if ((!_begun && !begin()) || !_codecDev) return false;
 
   _srMnTimeoutMs = multinetTimeoutMs;
   _srLoadFromSdkconfig = loadCommandsFromSdkconfig;
@@ -1737,8 +1733,8 @@ bool Audio::srBegin(const char *wakeupReplyTts,
     return false;
   }
 
-  if (!openRecCodec(16000, 16, 1)) {
-    AUDIO_LOGLN("SR begin: openRecCodec failed");
+  if (!openCodecDevice(16000, 16, 1)) {
+    AUDIO_LOGLN("SR begin: OpenCodecDevice failed");
     vEventGroupDelete(_srDoneEvent);
     _srDoneEvent = nullptr;
     iface->destroy(reinterpret_cast<esp_afe_sr_data_t *>(_srAfeData));
