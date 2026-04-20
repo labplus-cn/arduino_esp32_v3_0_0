@@ -16,5 +16,6 @@
             "command": "extension.execute",
             "priority": 4
         }
-    ]
+    ],
+    "idf.currentSetup": "C:\\Users\\diskm\\esp\\v5.0.4\\esp-idf"
 }

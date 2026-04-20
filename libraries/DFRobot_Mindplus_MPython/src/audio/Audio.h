@@ -35,10 +35,8 @@ public:
     ~Audio();
 
     bool begin();
-    void end();
 
     bool setVolume(uint8_t volume);
-    bool setMicGain(float gainDb);
 
     bool startRecord(const char *path,
                      uint32_t sampleRate = 16000,
@@ -50,14 +48,12 @@ public:
                      uint8_t channels,
                      uint32_t durationMs);
     void stopRecord();
-    bool recording() const;
 
     bool play(const char *path);
     bool pause();
     bool resume();
     void stop();
     PlayState state() const;
-    const char *stateName() const;
 
     // 语音合成功能
     bool ttsInit();
@@ -71,33 +67,24 @@ public:
      * @param multinetTimeoutMs MultiNet 命令识别超时（毫秒）
      * @param loadCommandsFromSdkconfig 为 true 时从 sdkconfig 加载命令表（多数 Arduino 工程无此项，常为 false）
      */
-    bool speechRecognitionBegin(const char *wakeupReplyTts = nullptr,
+    bool srBegin(const char *wakeupReplyTts = nullptr,
                                 uint16_t multinetTimeoutMs = 6000,
                                 bool loadCommandsFromSdkconfig = false);
-    void speechRecognitionEnd();
-    bool speechRecognitionRunning() const;
 
-    /** 等待 MultiNet 与命令链表就绪后再 add/apply */
-    bool speechRecognitionWaitReady(uint32_t timeoutMs = 15000);
-
-    bool speechRecognitionAddCommand(int commandId, const char *phraseUtf8);
-    bool speechRecognitionClearCommands();
-    /** 在 add/clear/modify 之后调用，将命令同步到 MultiNet */
-    bool speechRecognitionApplyCommands();
-
-    int speechRecognitionCommandId() const;
-    int speechRecognitionWakeupFlag() const;
-    void speechRecognitionResetCommandId();
+    bool srAddCommand(int commandId, const char *phraseUtf8);
+    bool srClearCommands();
+    bool srApplyCommands();
+    void srEnd();
+    int srGetCommandId();
 
 private:
     static constexpr int I2C_PORT = 0;
     static constexpr int I2S_PORT = 0;
-    static constexpr uint8_t DEFAULT_VOLUME = 100;
+    static constexpr uint8_t DEFAULT_VOLUME = 80;
 
     const audio_codec_gpio_if_t *_gpioIf;
     const audio_codec_ctrl_if_t *_ctrlIf;
-    const audio_codec_data_if_t *_playDataIf;  // 只含 TX handle，避免 open 时激活 RX 产生噪音
-    const audio_codec_data_if_t *_recDataIf;   // 只含 RX handle
+    const audio_codec_data_if_t *_dataIf;
     const audio_codec_if_t *_codecIf;
     esp_codec_dev_handle_t _playDev;   // 仅用于播放（OUT）
     esp_codec_dev_handle_t _recDev;    // 仅用于录音（IN）
@@ -121,6 +108,15 @@ private:
     TaskHandle_t _recordWriterTaskHandle;
     RingbufHandle_t _recordRingbuf;  // esp_ringbuf BYTEBUF，替代手写环形缓冲区
 
+    bool _playCodecOpened;
+    bool _recCodecOpened;
+    uint32_t _playSampleRate;
+    uint8_t _playBitsPerSample;
+    uint8_t _playChannels;
+    uint32_t _recSampleRate;
+    uint8_t _recBitsPerSample;
+    uint8_t _recChannels;
+
     uint8_t _volume;
     float _micGain;
 
@@ -131,10 +127,12 @@ private:
     uint8_t _recordBitsPerSample;
     uint8_t _recordChannels;
 
+    void end();
+    bool setMicGain(float gain);
+
     bool mountFS(fs::FS *fs, const char *partitionLabel);
-    bool initI2S();
-    bool initCodec();
-    void deinitCodec();
+    bool codecCreate();
+    void codecDestroy();
 
     bool openPlayCodec(uint32_t sampleRate, uint8_t bitsPerSample, uint8_t channels);
     void closePlayCodec();
@@ -157,6 +155,7 @@ private:
     void playDecodeTask();
     void recordCaptureTask();
     void recordWriterTask();
+    bool srWaitReady(uint32_t timeoutMs = 15000);
 
     // 语音合成相关（句柄类型见 esp-sr esp_tts_handle_t，此处用 void* 避免在公共头中包含 TTS 头）
     void *_ttsHandle;
@@ -172,6 +171,7 @@ private:
     static void srFeedTaskEntry(void *arg);
     static void srDetectTaskEntry(void *arg);
     bool speechRecognitionDeinitInternal();
+    bool srRunning() const;
 
     void *_srAfeIface;
     void *_srAfeData;

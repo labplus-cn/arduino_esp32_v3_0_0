@@ -371,8 +371,7 @@ done:
 Audio::Audio()
     : _gpioIf(nullptr),
       _ctrlIf(nullptr),
-      _playDataIf(nullptr),
-      _recDataIf(nullptr),
+      _dataIf(nullptr),
       _codecIf(nullptr),
       _playDev(nullptr),
       _recDev(nullptr),
@@ -392,6 +391,14 @@ Audio::Audio()
       _recordCaptureTaskHandle(nullptr),
       _recordWriterTaskHandle(nullptr),
       _recordRingbuf(nullptr),
+      _playCodecOpened(false),
+      _recCodecOpened(false),
+      _playSampleRate(0),
+      _playBitsPerSample(0),
+      _playChannels(0),
+      _recSampleRate(0),
+      _recBitsPerSample(0),
+      _recChannels(0),
       _volume(DEFAULT_VOLUME),
       _micGain(35.0f),
       _recordFs(nullptr),
@@ -472,10 +479,6 @@ bool Audio::ttsInit() {
 
 // 文本转语音
 bool Audio::textToSpeech(const char *text) {
-  if (_srTaskFlag) {
-    AUDIO_LOGLN("textToSpeech skipped: SR is running");
-    return false;
-  }
   if (!_ttsInitialized) {
     AUDIO_LOGLN("textToSpeech failed: TTS not initialized");
     return false;
@@ -555,7 +558,7 @@ void Audio::ttsTask(void *arg) {
   
   // 清理资源
   esp_tts_stream_reset(audio->_ttsHandle);
-  audio->closePlayCodec();
+  // audio->closePlayCodec();
   xSemaphoreGive(audio->_ttsSemaphore);
   free(params);
   vTaskDelete(nullptr);
@@ -566,7 +569,7 @@ bool Audio::mountFS(fs::FS *fs, const char *label) {
 }
 
 
-bool Audio::initI2S() {
+bool Audio::codecCreate() {
   i2s_chan_config_t channelConfig =
       I2S_CHANNEL_DEFAULT_CONFIG((i2s_port_t)I2S_PORT, I2S_ROLE_MASTER);
   channelConfig.auto_clear = true;
@@ -596,44 +599,19 @@ bool Audio::initI2S() {
     return false;
   }
 
-  // 播放用 data_if：只含 TX handle
-  // 官方参考（audio_codec_data_i2s.c）：get_paired() 通过 i2s_data_list 查找同 port
-  // 的配对 data_if，TX 和 RX 各自持有对方 handle 可使框架正确协调时钟。
-  audio_codec_i2s_cfg_t playDataConfig = {
+  audio_codec_i2s_cfg_t dataConfig = {
       .port = I2S_PORT,
-      .rx_handle = nullptr,
+      .rx_handle = rx,
       .tx_handle = tx,
       .clk_src = I2S_CLK_SRC_DEFAULT,
   };
-  _playDataIf = audio_codec_new_i2s_data(&playDataConfig);
-  if (!_playDataIf) {
+  _dataIf = audio_codec_new_i2s_data(&dataConfig);
+  if (!_dataIf) {
     i2s_del_channel(tx);
     i2s_del_channel(rx);
     return false;
   }
 
-  // 录音用 data_if：只含 RX handle，不携带 TX handle。
-  // get_paired() 通过相同 port 将 _playDataIf（有 out_handle=TX）和 _recDataIf（有 in_handle=RX）配对。
-  // 当 RX 需要重配时钟时，框架会通过 get_paired() 找到 _playDataIf 并操作其 TX channel，
-  // 不需要在 _recDataIf 中重复注册同一个 TX handle（否则同一 TX handle 被两个条目引用，
-  // 导致 _i2s_drv_enable 对同一 channel 双重操作，产生噪音）。
-  audio_codec_i2s_cfg_t recDataConfig = {
-      .port = I2S_PORT,
-      .rx_handle = rx,
-      .tx_handle = nullptr,
-      .clk_src = I2S_CLK_SRC_DEFAULT,
-  };
-  _recDataIf = audio_codec_new_i2s_data(&recDataConfig);
-  if (!_recDataIf) {
-    audio_codec_delete_data_if(_playDataIf);
-    _playDataIf = nullptr;
-    i2s_del_channel(rx);
-    return false;
-  }
-  return true;
-}
-
-bool Audio::initCodec() {
   audio_codec_i2c_cfg_t i2cConfig = {
       .port = I2C_PORT,
       .addr = ES8388_CODEC_DEFAULT_ADDR,
@@ -660,7 +638,7 @@ bool Audio::initCodec() {
   esp_codec_dev_cfg_t playDevConfig = {
       .dev_type = ESP_CODEC_DEV_TYPE_OUT,
       .codec_if = _codecIf,
-      .data_if = _playDataIf,
+      .data_if = _dataIf,
   };
   _playDev = esp_codec_dev_new(&playDevConfig);
   if (!_playDev) return false;
@@ -668,13 +646,12 @@ bool Audio::initCodec() {
   esp_codec_dev_cfg_t recDevConfig = {
       .dev_type = ESP_CODEC_DEV_TYPE_IN,
       .codec_if = _codecIf,
-      .data_if = _recDataIf,
+      .data_if = _dataIf,
   };
   _recDev = esp_codec_dev_new(&recDevConfig);
   return _recDev != nullptr;
 }
-
-void Audio::deinitCodec() {
+void Audio::codecDestroy() {
   closePlayCodec();
   closeRecCodec();
 
@@ -694,13 +671,9 @@ void Audio::deinitCodec() {
     audio_codec_delete_ctrl_if(_ctrlIf);
     _ctrlIf = nullptr;
   }
-  if (_recDataIf) {
-    audio_codec_delete_data_if(_recDataIf);
-    _recDataIf = nullptr;
-  }
-  if (_playDataIf) {
-    audio_codec_delete_data_if(_playDataIf);
-    _playDataIf = nullptr;
+  if (_dataIf) {
+    audio_codec_delete_data_if(_dataIf);
+    _dataIf = nullptr;
   }
   if (_gpioIf) {
     audio_codec_delete_gpio_if(_gpioIf);
@@ -713,9 +686,9 @@ bool Audio::begin() {
 
   AUDIO_LOGLN("begin()");
 
-  if (!initI2S() || !initCodec()) {
+  if (!codecCreate()) {
     AUDIO_LOGLN("begin failed during init");
-    deinitCodec();
+    codecDestroy();
     return false;
   }
 
@@ -729,7 +702,7 @@ bool Audio::begin() {
 void Audio::end() {
   stop();
   stopRecord();
-  speechRecognitionEnd();
+  srEnd();
 
   // 清理语音合成资源
   if (_ttsHandle) {
@@ -742,7 +715,7 @@ void Audio::end() {
   }
   _ttsInitialized = false;
   
-  deinitCodec();
+  codecDestroy();
   _begun = false;
 }
 
@@ -783,9 +756,6 @@ bool Audio::openRecCodec(uint32_t sr, uint8_t bits, uint8_t ch) {
   }
 
   int mclkMultiple = 256;
-  if (sr == 11025 || sr == 22050 || sr == 44100) {
-    mclkMultiple = 384;
-  }
 
   esp_codec_dev_sample_info_t sampleInfo = {
       .bits_per_sample = bits,
@@ -1137,7 +1107,6 @@ void Audio::stopRecord() {
   }
 }
 
-bool Audio::recording() const { return _recording; }
 
 void Audio::configureSimpleDecoder(esp_audio_simple_dec_cfg_t &cfg,
                                    uint8_t *storage,
@@ -1505,16 +1474,6 @@ void Audio::stop() {
 }
 
 Audio::PlayState Audio::state() const { return _playState; }
-const char *Audio::stateName() const {
-  switch (_playState) {
-    case PLAY_STATE_IDLE: return "idle";
-    case PLAY_STATE_PLAYING: return "playing";
-    case PLAY_STATE_PAUSED: return "paused";
-    case PLAY_STATE_STOPPED: return "stopped";
-    case PLAY_STATE_ERROR: return "error";
-    default: return "unknown";
-  }
-}
 
 // ---------------------------------------------------------------------------
 // 离线语音识别（esp-sr：WakeNet + MultiNet），逻辑参考 temp/audio/src/sr/sc.c
@@ -1620,8 +1579,10 @@ void Audio::srDetectTask() {
       if (_srWakeupFlag == 0) {
         multinet->clean(model_data);
         afe->disable_wakenet(afe_data);
-        if (_srWakeupReplyTts.length() && _ttsInitialized) {
-          AUDIO_LOGLN("SR wake detected: skip TTS reply while SR is running");
+        if (!_ttsInitialized && !ttsInit()) {
+          AUDIO_LOGLN("SR wake detected: ttsInit failed");
+        } else {
+          textToSpeech(_srWakeupReplyTts.c_str());
         }
       }
       _srWakeupFlag = 1;
@@ -1696,7 +1657,7 @@ bool Audio::speechRecognitionDeinitInternal() {
   return true;
 }
 
-bool Audio::speechRecognitionBegin(const char *wakeupReplyTts,
+bool Audio::srBegin(const char *wakeupReplyTts,
                                     uint16_t multinetTimeoutMs,
                                     bool loadCommandsFromSdkconfig) {
   if (_srAfeIface) return true;
@@ -1708,7 +1669,7 @@ bool Audio::speechRecognitionBegin(const char *wakeupReplyTts,
 
   _srMnTimeoutMs = multinetTimeoutMs;
   _srLoadFromSdkconfig = loadCommandsFromSdkconfig;
-  _srWakeupReplyTts = wakeupReplyTts ? wakeupReplyTts : "";
+  _srWakeupReplyTts = wakeupReplyTts ? wakeupReplyTts : "我在";
   _srLatestCommandId = 0;
   _srWakeupFlag = 0;
   _srMultinetReady = false;
@@ -1811,7 +1772,7 @@ bool Audio::speechRecognitionBegin(const char *wakeupReplyTts,
   return true;
 }
 
-void Audio::speechRecognitionEnd() {
+void Audio::srEnd() {
   if (!_srAfeIface && !_srModels) return;
   _srMultinetReady = false;
   _srTaskFlag = 0;
@@ -1827,9 +1788,9 @@ void Audio::speechRecognitionEnd() {
   speechRecognitionDeinitInternal();
 }
 
-bool Audio::speechRecognitionRunning() const { return _srAfeIface != nullptr; }
+bool Audio::srRunning() const { return _srAfeIface != nullptr; }
 
-bool Audio::speechRecognitionWaitReady(uint32_t timeoutMs) {
+bool Audio::srWaitReady(uint32_t timeoutMs) {
   uint32_t start = millis();
   while (!_srMultinetReady && millis() - start < timeoutMs) {
     delay(10);
@@ -1837,7 +1798,8 @@ bool Audio::speechRecognitionWaitReady(uint32_t timeoutMs) {
   return _srMultinetReady;
 }
 
-bool Audio::speechRecognitionAddCommand(int commandId, const char *phraseUtf8) {
+bool Audio::srAddCommand(int commandId, const char *phraseUtf8) {
+  if (!_srMultinetReady && !srWaitReady()) return false;
   if (!phraseUtf8 || !phraseUtf8[0]) return false;
   char buf[ESP_MN_MAX_PHRASE_LEN + 1];
   strncpy(buf, phraseUtf8, ESP_MN_MAX_PHRASE_LEN);
@@ -1849,12 +1811,13 @@ bool Audio::speechRecognitionAddCommand(int commandId, const char *phraseUtf8) {
   return e == ESP_OK;
 }
 
-bool Audio::speechRecognitionClearCommands() {
+bool Audio::srClearCommands() {
+  if (!_srMultinetReady && !srWaitReady()) return false;
   return esp_mn_commands_clear() == ESP_OK;
 }
 
-bool Audio::speechRecognitionApplyCommands() {
-  if (!_srMultinetReady) return false;
+bool Audio::srApplyCommands() {
+  if (!_srMultinetReady && !srWaitReady()) return false;
   esp_mn_error_t *err = esp_mn_commands_update();
   if (err) {
     AUDIO_LOG("SR apply: multinet rejected some phrases (num=%d)\n", err->num);
@@ -1863,9 +1826,11 @@ bool Audio::speechRecognitionApplyCommands() {
   return true;
 }
 
-int Audio::speechRecognitionCommandId() const { return _srLatestCommandId; }
+int Audio::srGetCommandId() {
+  int commandId = _srLatestCommandId;
+  _srLatestCommandId = 0;
+  return commandId;
+}
 
-int Audio::speechRecognitionWakeupFlag() const { return _srWakeupFlag; }
 
-void Audio::speechRecognitionResetCommandId() { _srLatestCommandId = 0; }
 
