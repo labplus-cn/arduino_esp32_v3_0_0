@@ -37,15 +37,18 @@ extern "C" {
 #define AUDIO_HTTP_TIMEOUT_MS   (30 * 1000)
 #define AUDIO_HTTP_MAX_REDIRECT 5
 
-#define AUDIO_DEBUG 1
+#include "debug/Debug.h"
 
-#if AUDIO_DEBUG
-#define AUDIO_LOG(...) Serial.printf("[Audio] " __VA_ARGS__)
-#define AUDIO_LOGLN(msg) Serial.println("[Audio] " msg)
-#else
-#define AUDIO_LOG(...)
-#define AUDIO_LOGLN(msg)
-#endif
+// 为 Audio 模块定义调试宏
+#define AUDIO_ERROR(format, ...) DEBUG_ERROR("[Audio] " format, ##__VA_ARGS__)
+#define AUDIO_WARN(format, ...) DEBUG_WARN("[Audio] " format, ##__VA_ARGS__)
+#define AUDIO_INFO(format, ...) DEBUG_INFO("[Audio] " format, ##__VA_ARGS__)
+#define AUDIO_DEBUG(format, ...) DEBUG_DEBUG("[Audio] " format, ##__VA_ARGS__)
+
+#define AUDIO_ERRORLN(msg) DEBUG_ERRORLN("[Audio] " msg)
+#define AUDIO_WARNLN(msg) DEBUG_WARNLN("[Audio] " msg)
+#define AUDIO_INFOLN(msg) DEBUG_INFOLN("[Audio] " msg)
+#define AUDIO_DEBUGLN(msg) DEBUG_DEBUGLN("[Audio] " msg)
 
 extern "C" {
 int audio_codec_delete_codec_if(const audio_codec_if_t *codec_if);
@@ -223,11 +226,11 @@ void networkReadTask(void *arg) {
   uint8_t *tmp = (uint8_t *)malloc(1460);
 
   if (!tmp) {
-    AUDIO_LOGLN("PlayUrl failed: read task malloc failed");
+    AUDIO_ERRORLN("PlayUrl failed: read task malloc failed");
     goto done;
   }
   if (ctx && ctx->source.length()) {
-    AUDIO_LOG("PlayUrl(url=%s)\n", ctx->source.c_str());
+    AUDIO_DEBUG("PlayUrl(url=%s)\n", ctx->source.c_str());
     if (!strncmp(ctx->source.c_str(), "https://", 8)) {
       auto *secureClient = new WiFiClientSecure();
       secureClient->setInsecure();
@@ -237,7 +240,7 @@ void networkReadTask(void *arg) {
     }
 
     if (!client || !http.begin(*client, ctx->source)) {
-      AUDIO_LOGLN("PlayUrl failed: http begin failed");
+      AUDIO_ERRORLN("PlayUrl failed: http begin failed");
     } else {
       http.setTimeout(AUDIO_HTTP_TIMEOUT_MS);
       http.setConnectTimeout(AUDIO_HTTP_TIMEOUT_MS);
@@ -250,12 +253,12 @@ void networkReadTask(void *arg) {
 
       int statusCode = http.GET();
       if (statusCode != HTTP_CODE_OK && statusCode != HTTP_CODE_PARTIAL_CONTENT) {
-        AUDIO_LOG("PlayUrl failed: http status=%d\n", statusCode);
+        AUDIO_ERROR("PlayUrl failed: http status=%d\n", statusCode);
       } else {
         String contentEncoding = http.header("Content-Encoding");
         contentEncoding.toLowerCase();
         if (contentEncoding.indexOf("gzip") >= 0 || contentEncoding.indexOf("deflate") >= 0) {
-          AUDIO_LOG(
+          AUDIO_ERROR(
               "PlayUrl failed: compressed Content-Encoding=%s (esp-gmf uses gzip "
               "decompress; use a URL that serves raw audio or add decompression)\n",
               contentEncoding.c_str());
@@ -272,7 +275,7 @@ void networkReadTask(void *arg) {
 
           ctx->stream = http.getStreamPtr();
           if (!ctx->stream || ctx->type == ESP_AUDIO_SIMPLE_DEC_TYPE_NONE) {
-            AUDIO_LOGLN("PlayUrl failed: context init failed");
+            AUDIO_ERRORLN("PlayUrl failed: context init failed");
           } else {
             ctx->initOk = true;
             ctx->sourceReady = true;
@@ -323,20 +326,20 @@ void localReadTask(void *arg) {
   uint8_t *tmp = (uint8_t *)malloc(PLAY_INPUT_BUFFER_BYTES);
 
   if (!tmp) {
-    AUDIO_LOGLN("PlayLocal failed: read task malloc failed");
+    AUDIO_ERRORLN("PlayLocal failed: read task malloc failed");
     goto done;
   }
   if (!ctx || !ctx->source.length()) goto done;
 
-  AUDIO_LOG("PlayLocal(path=%s)\n", ctx->source.c_str());
+  AUDIO_DEBUG("PlayLocal(path=%s)\n", ctx->source.c_str());
   ctx->type = getDecoderTypeFromPath(ctx->source.c_str());
   ctx->file = LittleFS.open(ctx->source.c_str(), FILE_READ);
   if (ctx->type == ESP_AUDIO_SIMPLE_DEC_TYPE_NONE || !ctx->file) {
-    AUDIO_LOGLN("PlayLocal failed: context init failed");
+    AUDIO_ERRORLN("PlayLocal failed: context init failed");
     goto done;
   }
 
-  AUDIO_LOG("PlayLocal size=%lu type=%lu\n", (unsigned long)ctx->file.size(),
+  AUDIO_DEBUG("PlayLocal size=%lu type=%lu\n", (unsigned long)ctx->file.size(),
             (unsigned long)ctx->type);
   ctx->initOk = true;
   ctx->sourceReady = true;
@@ -431,7 +434,7 @@ bool Audio::ttsInit() {
   // 查找 voice_data 分区
   const esp_partition_t *part = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_ANY, "voice_data");
   if (!part) {
-    AUDIO_LOGLN("ttsInit failed: voice_data partition not found");
+    AUDIO_ERRORLN("ttsInit failed: voice_data partition not found");
     return false;
   }
   
@@ -440,28 +443,28 @@ bool Audio::ttsInit() {
   esp_partition_mmap_handle_t mmap;
   esp_err_t err = esp_partition_mmap(part, 0, part->size, ESP_PARTITION_MMAP_DATA, (const void **)&voicedata, &mmap);
   if (err != ESP_OK) {
-    AUDIO_LOGLN("ttsInit failed: mmap failed");
+    AUDIO_ERRORLN("ttsInit failed: mmap failed");
     return false;
   }
   
   // 初始化语音
   esp_tts_voice_t *voice = esp_tts_voice_set_init(&esp_tts_voice_template, (int16_t *)voicedata);
   if (!voice) {
-    AUDIO_LOGLN("ttsInit failed: voice init failed");
+    AUDIO_ERRORLN("ttsInit failed: voice init failed");
     return false;
   }
   
   // 创建 TTS 句柄
   _ttsHandle = esp_tts_create(voice);
   if (!_ttsHandle) {
-    AUDIO_LOGLN("ttsInit failed: esp_tts_create failed");
+    AUDIO_ERRORLN("ttsInit failed: esp_tts_create failed");
     return false;
   }
   
   // 创建信号量
   _ttsSemaphore = xSemaphoreCreateBinary();
   if (!_ttsSemaphore) {
-    AUDIO_LOGLN("ttsInit failed: semaphore create failed");
+    AUDIO_ERRORLN("ttsInit failed: semaphore create failed");
     esp_tts_destroy(_ttsHandle);
     _ttsHandle = nullptr;
     return false;
@@ -475,12 +478,12 @@ bool Audio::ttsInit() {
 // 文本转语音
 bool Audio::textToSpeech(const char *text) {
   if (!_ttsInitialized) {
-    AUDIO_LOGLN("textToSpeech failed: TTS not initialized");
+    AUDIO_ERRORLN("textToSpeech failed: TTS not initialized");
     return false;
   }
   
   if (!text || strlen(text) == 0) {
-    AUDIO_LOGLN("textToSpeech failed: empty text");
+    AUDIO_ERRORLN("textToSpeech failed: empty text");
     return false;
   }
   
@@ -492,7 +495,7 @@ bool Audio::textToSpeech(const char *text) {
   
   TtsTaskParams *params = (TtsTaskParams *)malloc(sizeof(TtsTaskParams));
   if (!params) {
-    AUDIO_LOGLN("textToSpeech failed: malloc failed");
+    AUDIO_ERRORLN("textToSpeech failed: malloc failed");
     return false;
   }
   
@@ -502,7 +505,7 @@ bool Audio::textToSpeech(const char *text) {
   
   // 创建 TTS 任务
   if (xTaskCreatePinnedToCore(ttsTask, "tts_task", 4 * 1024, (void *)params, 5, nullptr, 0) != pdPASS) {
-    AUDIO_LOGLN("textToSpeech failed: task create failed");
+    AUDIO_ERRORLN("textToSpeech failed: task create failed");
     free(params);
     return false;
   }
@@ -534,7 +537,7 @@ void Audio::ttsTask(void *arg) {
   }
   
   if (!audio->openCodecDevice(16000, 16, 1)) {
-    AUDIO_LOGLN("ttsTask failed: OpenCodecDevice failed");
+    AUDIO_ERRORLN("ttsTask failed: OpenCodecDevice failed");
     xSemaphoreGive(audio->_ttsSemaphore);
     free(params);
     vTaskDelete(nullptr);
@@ -667,10 +670,10 @@ void Audio::codecDestroy() {
 bool Audio::begin() {
   if (_begun) return true;
 
-  AUDIO_LOGLN("begin()");
+  AUDIO_DEBUGLN("begin()");
 
   if (!codecCreate()) {
-    AUDIO_LOGLN("begin failed during init");
+    AUDIO_ERRORLN("begin failed during init");
     codecDestroy();
     return false;
   }
@@ -704,7 +707,7 @@ void Audio::end() {
 
 bool Audio::openCodecDevice(uint32_t sr, uint8_t bits, uint8_t ch) {
   if (!_codecDev) {
-    AUDIO_LOGLN("codec device open failed: _codecDev is null");
+    AUDIO_ERRORLN("codec device open failed: _codecDev is null");
     return false;
   }
 
@@ -713,7 +716,7 @@ bool Audio::openCodecDevice(uint32_t sr, uint8_t bits, uint8_t ch) {
                      _codecBitsPerSample != bits ||
                      _codecChannels != ch);
   if (needReopen) {
-    AUDIO_LOG("codec device reopen: %lu/%u/%u -> %lu/%u/%u\n",
+    AUDIO_DEBUG("codec device reopen: %lu/%u/%u -> %lu/%u/%u\n",
         (unsigned long)_codecSampleRate,
         _codecBitsPerSample,
         _codecChannels,
@@ -722,7 +725,7 @@ bool Audio::openCodecDevice(uint32_t sr, uint8_t bits, uint8_t ch) {
         ch);
     closeCodecDevice();
   } else if (_codecDeviceOpened) {
-    AUDIO_LOG("codec device reuse: %lu/%u/%u\n",
+    AUDIO_DEBUG("codec device reuse: %lu/%u/%u\n",
         (unsigned long)_codecSampleRate,
         _codecBitsPerSample,
         _codecChannels);
@@ -730,7 +733,7 @@ bool Audio::openCodecDevice(uint32_t sr, uint8_t bits, uint8_t ch) {
     esp_codec_dev_set_in_gain(_codecDev, _micGain);
     return true;
   } else {
-    AUDIO_LOG("codec device first open: %lu/%u/%u\n",
+    AUDIO_DEBUG("codec device first open: %lu/%u/%u\n",
         (unsigned long)sr,
         bits,
         ch);
@@ -744,12 +747,12 @@ bool Audio::openCodecDevice(uint32_t sr, uint8_t bits, uint8_t ch) {
       .mclk_multiple = 256,
   };
 
-  AUDIO_LOG("codec device apply params: sr=%lu, bits=%u, ch=%u, mclk=%d\n",
+  AUDIO_DEBUG("codec device apply params: sr=%lu, bits=%u, ch=%u, mclk=%d\n",
       (unsigned long)sr, bits, ch, sampleInfo.mclk_multiple);
 
   int status = esp_codec_dev_open(_codecDev, &sampleInfo);
   if (status != ESP_CODEC_DEV_OK) {
-    AUDIO_LOG("codec device open failed: status=%d\n", status);
+    AUDIO_ERROR("codec device open failed: status=%d\n", status);
     return false;
   }
   _codecDeviceOpened = true;
@@ -886,7 +889,7 @@ bool Audio::waitWhilePaused() {
 
 bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch) {
   String normalizedPath = normalizeFsPath(path);
-  AUDIO_LOG("startRecord(path=%s, sr=%lu, bits=%u, ch=%u)\n",
+  AUDIO_DEBUG("startRecord(path=%s, sr=%lu, bits=%u, ch=%u)\n",
             normalizedPath.c_str(),
             (unsigned long)sr,
             bits,
@@ -895,35 +898,35 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
   fs::FS *fs = &LittleFS;
   const char *label = "lfs2";
   if ((!_begun && !begin()) || !mountFS(fs, label)) {
-    AUDIO_LOGLN("startRecord failed: begin or mountFS failed");
+    AUDIO_ERRORLN("startRecord failed: begin or mountFS failed");
     return false;
   }
 
   if (!normalizedPath.length() || isHttpSource(normalizedPath.c_str())) {
-    AUDIO_LOGLN("startRecord failed: invalid record path");
+    AUDIO_ERRORLN("startRecord failed: invalid record path");
     return false;
   }
 
   if (_srTaskFlag) {
-    AUDIO_LOGLN("startRecord failed: speech recognition is active");
+    AUDIO_ERRORLN("startRecord failed: speech recognition is active");
     return false;
   }
 
   stopRecord();
   if (!openCodecDevice(sr, bits, ch)) {
-    AUDIO_LOGLN("startRecord failed: OpenCodecDevice failed");
+    AUDIO_ERRORLN("startRecord failed: OpenCodecDevice failed");
     return false;
   }
 
   _recordFile = fs->open(normalizedPath.c_str(), FILE_WRITE, true);
   if (!_recordFile) {
-    AUDIO_LOGLN("startRecord failed: open file failed");
+    AUDIO_ERRORLN("startRecord failed: open file failed");
     closeCodecDevice();
     return false;
   }
 
   if (!initRecordBuffer(RECORD_RING_BUFFER_BYTES)) {
-    AUDIO_LOGLN("startRecord failed: init record buffer failed");
+    AUDIO_ERRORLN("startRecord failed: init record buffer failed");
     _recordFile.close();
     closeCodecDevice();
     return false;
@@ -935,7 +938,7 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
   _recordChannels = ch;
   _recordDataBytes = 0;
   if (!writeWavHeader(_recordFile, 0, sr, bits, ch)) {
-    AUDIO_LOGLN("startRecord failed: write header failed");
+    AUDIO_ERRORLN("startRecord failed: write header failed");
     _recordFile.close();
     deinitRecordBuffer();
     closeCodecDevice();
@@ -952,7 +955,7 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
                               3,
                               &_recordCaptureTaskHandle,
                               0) != pdPASS) {
-    AUDIO_LOGLN("startRecord failed: create capture task failed");
+    AUDIO_ERRORLN("startRecord failed: create capture task failed");
     _recordCaptureTaskHandle = nullptr;
     _recordCaptureDone = true;
     _recordWriterDone = true;
@@ -968,7 +971,7 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
                               2,
                               &_recordWriterTaskHandle,
                               1) != pdPASS) {
-    AUDIO_LOGLN("startRecord failed: create writer task failed");
+    AUDIO_ERRORLN("startRecord failed: create writer task failed");
     _recordStopRequested = true;
     _recordWriterTaskHandle = nullptr;
     _recordCaptureDone = true;
@@ -980,7 +983,7 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
   }
 
   _recording = true;
-  AUDIO_LOG("startRecord header write=1, ringBuffer=%u\n",
+  AUDIO_DEBUG("startRecord header write=1, ringBuffer=%u\n",
             (unsigned)RECORD_RING_BUFFER_BYTES);
   return true;
 }
@@ -988,7 +991,7 @@ bool Audio::startRecord(const char *path, uint32_t sr, uint8_t bits, uint8_t ch)
 bool Audio::startRecord(const char *path, uint32_t sampleRate,
                         uint8_t bitsPerSample, uint8_t channels,
                         uint32_t durationMs) {
-  AUDIO_LOG(
+  AUDIO_DEBUG(
       "startRecord(path=%s, sr=%lu, bits=%u, ch=%u, durationMs=%lu)\n",
       path ? path : "<null>",
       (unsigned long)sampleRate,
@@ -1018,7 +1021,7 @@ void Audio::recordCaptureTask() {
   while (!_recordStopRequested) {
     int status = esp_codec_dev_read(_codecDev, buffer, (int)RECORD_BUFFER_BYTES);
     if (status != ESP_CODEC_DEV_OK) {
-      AUDIO_LOG("recordCaptureTask read failed: status=%d req=%u\n",
+      AUDIO_ERROR("recordCaptureTask read failed: status=%d req=%u\n",
                 status,
                 (unsigned)RECORD_BUFFER_BYTES);
       _recording = false;
@@ -1062,7 +1065,7 @@ void Audio::recordWriterTask() {
 
     size_t written = _recordFile.write(buffer, bytesRead);
     if (written != bytesRead) {
-      AUDIO_LOG("recordWriterTask write failed: want=%u actual=%u\n",
+      AUDIO_ERROR("recordWriterTask write failed: want=%u actual=%u\n",
                 (unsigned)bytesRead,
                 (unsigned)written);
       _recording = false;
@@ -1079,7 +1082,7 @@ void Audio::recordWriterTask() {
 
 void Audio::stopRecord() {
   if (_recording) {
-    AUDIO_LOG("stopRecord dataBytes=%lu\n", (unsigned long)_recordDataBytes);
+    AUDIO_DEBUG("stopRecord dataBytes=%lu\n", (unsigned long)_recordDataBytes);
     _recordStopRequested = true;
     uint32_t startMs = millis();
     while ((!_recordCaptureDone || !_recordWriterDone) &&
@@ -1169,7 +1172,7 @@ void Audio::playDecodeTask() {
 
   esp_audio_simple_dec_handle_t decoder = nullptr;
   if (esp_audio_simple_dec_open(&decoderConfig, &decoder) != ESP_AUDIO_ERR_OK) {
-    AUDIO_LOGLN("PlayDecodeTask failed: decoder open failed");
+    AUDIO_ERRORLN("PlayDecodeTask failed: decoder open failed");
     _playStopRequested = true;
     _playDecodeTaskHandle = nullptr;
     return;
@@ -1180,7 +1183,7 @@ void Audio::playDecodeTask() {
   size_t outputBufferSize = PLAY_OUTPUT_BUFFER_BYTES;
   uint8_t *outputBuffer = (uint8_t *)malloc(outputBufferSize);          // 解码器输出的 PCM 数据
   if (!inputBuffer || !outputBuffer) {
-    AUDIO_LOGLN("PlayDecodeTask failed: malloc failed");
+    AUDIO_ERRORLN("PlayDecodeTask failed: malloc failed");
     free(inputBuffer);
     free(outputBuffer);
     esp_audio_simple_dec_close(decoder);
@@ -1232,7 +1235,7 @@ void Audio::playDecodeTask() {
       if (err == ESP_AUDIO_ERR_BUFF_NOT_ENOUGH) {
         uint8_t *resizedOutput = (uint8_t *)realloc(outputBuffer, frame.needed_size);
         if (!resizedOutput) {
-          AUDIO_LOGLN("PlayDecodeTask failed: realloc failed");
+          AUDIO_ERRORLN("PlayDecodeTask failed: realloc failed");
           ok = false;
           _playStopRequested = true;
           break;
@@ -1242,7 +1245,7 @@ void Audio::playDecodeTask() {
         continue;  // 用新缓冲区重试，raw 不变
       }
       if (err != ESP_AUDIO_ERR_OK) {
-        AUDIO_LOG("PlayDecodeTask decode failed: err=%d raw.len=%lu consumed=%lu\n",
+        AUDIO_ERROR("PlayDecodeTask decode failed: err=%d raw.len=%lu consumed=%lu\n",
                   (int)err,
                   (unsigned long)raw.len,
                   (unsigned long)raw.consumed);
@@ -1262,7 +1265,7 @@ void Audio::playDecodeTask() {
         if (!codecOpened) {
           if (esp_audio_simple_dec_get_info(decoder, &simpleInfo) != ESP_AUDIO_ERR_OK) {
             // 极少数情况下首帧信息尚未就绪，跳过本帧等待下一帧
-            AUDIO_LOGLN("PlayDecodeTask waiting decoder info");
+            AUDIO_DEBUGLN("PlayDecodeTask waiting decoder info");
             continue;
           }
           uint8_t bitsPerSample = simpleInfo.bits_per_sample;
@@ -1275,14 +1278,14 @@ void Audio::playDecodeTask() {
             bitsPerSample = channels;
             channels = swapped;
           }
-          AUDIO_LOG("PlayDecodeTask decoded info: sr=%lu bits=%u ch=%u\n",
+          AUDIO_DEBUG("PlayDecodeTask decoded info: sr=%lu bits=%u ch=%u\n",
                     (unsigned long)simpleInfo.sample_rate,
                     bitsPerSample,
                     channels);
           // 按实际音频参数配置 I2S 时钟和 ES8388 DAC
           // channel=1 时 esp_codec_dev 内部自动设置 I2S slot mask，无需手动扩展为立体声
           if (!openCodecDevice(simpleInfo.sample_rate, bitsPerSample, channels)) {
-            AUDIO_LOGLN("PlayDecodeTask OpenCodecDevice failed");
+            AUDIO_ERRORLN("PlayDecodeTask OpenCodecDevice failed");
             ok = false;
             _playStopRequested = true;
             break;
@@ -1294,13 +1297,13 @@ void Audio::playDecodeTask() {
           // I2S PLL 重新锁定需要几个周期，等待时钟稳定后再写入 PCM，
           // 避免 TX DMA 在 clock 不稳期间输出噪声。
           // 丢弃这一帧（解码已完成，仅跳过写入），下一帧时钟已稳定。
-          AUDIO_LOGLN("PlayDecodeTask codec opened, dropping first frame to let I2S PLL settle");
+          AUDIO_DEBUGLN("PlayDecodeTask codec opened, dropping first frame to let I2S PLL settle");
           vTaskDelay(pdMS_TO_TICKS(10));
           continue;
         }
 
         if (!firstWriteLogged) {
-          AUDIO_LOG("PlayDecodeTask first write: decoded_size=%lu ch=%u codec=%p\n",
+          AUDIO_DEBUG("PlayDecodeTask first write: decoded_size=%lu ch=%u codec=%p\n",
                     (unsigned long)frame.decoded_size,
                     simpleInfo.channel,
                     _codecDev);
@@ -1309,7 +1312,7 @@ void Audio::playDecodeTask() {
 
         // 将解码后的 PCM 写入 I2S DMA，阻塞直到 DMA 接受数据（天然背压）
         if (esp_codec_dev_write(_codecDev, frame.buffer, (int)frame.decoded_size) != ESP_CODEC_DEV_OK) {
-          AUDIO_LOG("PlayDecodeTask write failed: decoded_size=%lu\n",
+          AUDIO_ERROR("PlayDecodeTask write failed: decoded_size=%lu\n",
                     (unsigned long)frame.decoded_size);
           ok = false;
           _playStopRequested = true;
@@ -1488,7 +1491,7 @@ void Audio::srFeedTask() {
   size_t bytes = (size_t)chunk * (size_t)nch * sizeof(int16_t);
   int16_t *buf = reinterpret_cast<int16_t *>(malloc(bytes));
   if (!buf) {
-    AUDIO_LOGLN("SR feed: malloc failed");
+    AUDIO_ERRORLN("SR feed: malloc failed");
     if (_srDoneEvent) xEventGroupSetBits(_srDoneEvent, kSrFeedDone);
     return;
   }
@@ -1513,21 +1516,21 @@ void Audio::srDetectTask() {
   int afe_chunksize = afe->get_fetch_chunksize(afe_data);
   char *mn_name = esp_srmodel_filter(models, ESP_MN_PREFIX, ESP_MN_CHINESE);
   if (!mn_name) {
-    AUDIO_LOGLN("SR detect: no Chinese multinet model");
+    AUDIO_ERRORLN("SR detect: no Chinese multinet model");
     goto finish;
   }
   multinet = esp_mn_handle_from_name(mn_name);
   if (!multinet) {
-    AUDIO_LOGLN("SR detect: esp_mn_handle_from_name failed");
+    AUDIO_ERRORLN("SR detect: esp_mn_handle_from_name failed");
     goto finish;
   }
   model_data = multinet->create(mn_name, (int)_srMnTimeoutMs);
   if (!model_data) {
-    AUDIO_LOGLN("SR detect: multinet->create failed");
+    AUDIO_ERRORLN("SR detect: multinet->create failed");
     goto finish;
   }
   if (esp_mn_commands_alloc(multinet, model_data) != ESP_OK) {
-    AUDIO_LOGLN("SR detect: esp_mn_commands_alloc failed");
+    AUDIO_ERRORLN("SR detect: esp_mn_commands_alloc failed");
     multinet->destroy(model_data);
     model_data = nullptr;
     goto finish;
@@ -1543,7 +1546,7 @@ void Audio::srDetectTask() {
   {
     int mu_chunksize = multinet->get_samp_chunksize(model_data);
     if (mu_chunksize != afe_chunksize) {
-      AUDIO_LOG("SR detect: chunk mismatch afe=%d mn=%d\n", afe_chunksize, mu_chunksize);
+      AUDIO_WARN("SR detect: chunk mismatch afe=%d mn=%d\n", afe_chunksize, mu_chunksize);
       // Compatibility path: some esp-sr binary/header combinations report an
       // inconsistent fetch chunk size but still work with fetch()->data.
       // Keep running instead of aborting SR startup.
@@ -1554,19 +1557,19 @@ void Audio::srDetectTask() {
   _srMnModel = model_data;
   _srMultinetReady = true;
 
-  AUDIO_LOGLN("SR detect: started");
+  AUDIO_INFO("SR detect: started\n");
 
   while (_srTaskFlag) {
     afe_fetch_result_t *res = afe->fetch(afe_data);
     if (!res || res->ret_value == ESP_FAIL) {
-      AUDIO_LOGLN("SR detect: fetch error");
+      AUDIO_ERRORLN("SR detect: fetch error");
       break;
     }
 
     if (_srWakeupFlag == 0) {
       if (res->wakeup_state == WAKENET_DETECTED) {
         if (!_ttsInitialized && !ttsInit()) {
-          AUDIO_LOGLN("SR wake detected: ttsInit failed");
+          AUDIO_ERRORLN("SR wake detected: ttsInit failed");
         } else {
           textToSpeech(_srWakeupReplyTts.c_str());
         }
@@ -1651,7 +1654,7 @@ bool Audio::srBegin(const char *wakeupReplyTts,
                                     bool loadCommandsFromSdkconfig) {
   if (_srAfeIface) return true;
   if (_recording) {
-    AUDIO_LOGLN("SR begin: file recording active");
+    AUDIO_ERRORLN("SR begin: file recording active");
     return false;
   }
   if ((!_begun && !begin()) || !_codecDev) return false;
@@ -1668,19 +1671,19 @@ bool Audio::srBegin(const char *wakeupReplyTts,
 
   _srModels = esp_srmodel_init("model");
   if (!_srModels) {
-    AUDIO_LOGLN("SR begin: esp_srmodel_init failed");
+    AUDIO_ERRORLN("SR begin: esp_srmodel_init failed");
     return false;
   }
   if (!esp_srmodel_filter(reinterpret_cast<srmodel_list_t *>(_srModels), ESP_WN_PREFIX,
                           nullptr)) {
-    AUDIO_LOGLN("SR begin: no wakenet model");
+    AUDIO_ERRORLN("SR begin: no wakenet model");
     esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
     _srModels = nullptr;
     return false;
   }
   if (!esp_srmodel_filter(reinterpret_cast<srmodel_list_t *>(_srModels), ESP_MN_PREFIX,
                           ESP_MN_CHINESE)) {
-    AUDIO_LOGLN("SR begin: no Chinese multinet");
+    AUDIO_ERRORLN("SR begin: no Chinese multinet");
     esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
     _srModels = nullptr;
     return false;
@@ -1689,14 +1692,14 @@ bool Audio::srBegin(const char *wakeupReplyTts,
   afe_config_t *afe_cfg =
       afe_config_init("M", reinterpret_cast<srmodel_list_t *>(_srModels));
   if (!afe_cfg) {
-    AUDIO_LOGLN("SR begin: afe_config_init failed");
+    AUDIO_ERRORLN("SR begin: afe_config_init failed");
     esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
     _srModels = nullptr;
     return false;
   }
   _srAfeIface = esp_afe_handle_from_config(afe_cfg);
   if (!_srAfeIface) {
-    AUDIO_LOGLN("SR begin: esp_afe_handle_from_config failed");
+    AUDIO_ERRORLN("SR begin: esp_afe_handle_from_config failed");
     afe_config_free(afe_cfg);
     esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
     _srModels = nullptr;
@@ -1706,7 +1709,7 @@ bool Audio::srBegin(const char *wakeupReplyTts,
   _srAfeData = iface->create_from_config(afe_cfg);
   afe_config_free(afe_cfg);
   if (!_srAfeData) {
-    AUDIO_LOGLN("SR begin: create_from_config failed");
+    AUDIO_ERRORLN("SR begin: create_from_config failed");
     _srAfeIface = nullptr;
     esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));
     _srModels = nullptr;
@@ -1716,7 +1719,7 @@ bool Audio::srBegin(const char *wakeupReplyTts,
 
   _srDoneEvent = xEventGroupCreate();
   if (!_srDoneEvent) {
-    AUDIO_LOGLN("SR begin: event group failed");
+    AUDIO_ERRORLN("SR begin: event group failed");
     iface->destroy(reinterpret_cast<esp_afe_sr_data_t *>(_srAfeData));
     _srAfeData = nullptr;
     _srAfeIface = nullptr;
@@ -1726,7 +1729,7 @@ bool Audio::srBegin(const char *wakeupReplyTts,
   }
 
   if (!openCodecDevice(16000, 16, 1)) {
-    AUDIO_LOGLN("SR begin: OpenCodecDevice failed");
+    AUDIO_ERRORLN("SR begin: OpenCodecDevice failed");
     vEventGroupDelete(_srDoneEvent);
     _srDoneEvent = nullptr;
     iface->destroy(reinterpret_cast<esp_afe_sr_data_t *>(_srAfeData));
@@ -1742,14 +1745,14 @@ bool Audio::srBegin(const char *wakeupReplyTts,
 
   if (xTaskCreatePinnedToCore(srDetectTaskEntry, "audio_sr_det", 8192, this, 5,
                               &_srDetectTaskHandle, 1) != pdPASS) {
-    AUDIO_LOGLN("SR begin: detect task failed");
+    AUDIO_ERRORLN("SR begin: detect task failed");
     _srTaskFlag = 0;
     speechRecognitionDeinitInternal();
     return false;
   }
   if (xTaskCreatePinnedToCore(srFeedTaskEntry, "audio_sr_feed", 8192, this, 5,
                               &_srFeedTaskHandle, 0) != pdPASS) {
-    AUDIO_LOGLN("SR begin: feed task failed");
+    AUDIO_ERRORLN("SR begin: feed task failed");
     _srTaskFlag = 0;
     (void)xEventGroupWaitBits(_srDoneEvent, kSrDetectDone, pdTRUE, pdTRUE,
                              pdMS_TO_TICKS(8000));
@@ -1768,7 +1771,7 @@ void Audio::srEnd() {
     EventBits_t bits = xEventGroupWaitBits(_srDoneEvent, kSrAllDone, pdTRUE, pdTRUE,
                                            pdMS_TO_TICKS(8000));
     if ((bits & kSrAllDone) != kSrAllDone) {
-      AUDIO_LOGLN("SR end: task join timeout");
+      AUDIO_WARN("SR end: task join timeout\n");
     }
   }
   _srFeedTaskHandle = nullptr;
@@ -1808,7 +1811,7 @@ bool Audio::srApplyCommands() {
   if (!_srMultinetReady && !srWaitReady()) return false;
   esp_mn_error_t *err = esp_mn_commands_update();
   if (err) {
-    AUDIO_LOG("SR apply: multinet rejected some phrases (num=%d)\n", err->num);
+    AUDIO_WARN("SR apply: multinet rejected some phrases (num=%d)\n", err->num);
     return false;
   }
   return true;
