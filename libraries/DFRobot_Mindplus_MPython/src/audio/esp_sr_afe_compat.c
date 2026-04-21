@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "audio/esp_sr_afe_api.h"
 
@@ -45,16 +46,13 @@ typedef struct {
 } legacy_afe_config_t;
 
 __attribute__((weak)) afe_config_t *afe_config_init(const char *input_format,
-                                                    srmodel_list_t *models,
-                                                    afe_type_t type,
-                                                    afe_mode_t mode) {
+                                                    srmodel_list_t *models) {
   (void)input_format;
   legacy_afe_config_t *cfg =
       (legacy_afe_config_t *)calloc(1, sizeof(legacy_afe_config_t));
   if (!cfg) return NULL;
 
-  (void)type;
-  cfg->afe_mode = mode;
+  cfg->afe_mode = SR_MODE_HIGH_PERF;
   cfg->afe_ringbuf_size = 50;
   cfg->memory_alloc_mode = AFE_MEMORY_ALLOC_MORE_PSRAM;
   cfg->afe_linear_gain = 1.0f;
@@ -71,7 +69,6 @@ __attribute__((weak)) afe_config_t *afe_config_init(const char *input_format,
   cfg->agc_mode = AFE_MN_PEAK_NO_AGC;
   cfg->wakenet_model_name = models ? esp_srmodel_filter(models, ESP_WN_PREFIX, NULL) : NULL;
   if (!cfg->wakenet_model_name) {
-    // Prevent create_from_config crash when no wake model exists.
     cfg->wakenet_init = false;
   }
 
@@ -90,4 +87,3 @@ __attribute__((weak)) esp_afe_sr_iface_t *esp_afe_handle_from_config(const afe_c
   (void)cfg;
   return (esp_afe_sr_iface_t *)&esp_afe_sr_v1;
 }
-

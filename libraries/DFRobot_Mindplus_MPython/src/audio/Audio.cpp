@@ -27,8 +27,8 @@
 
 // 语音合成（esp-sr）：仅在 cpp 中包含；头文件需已修补 C++ 兼容性（见 esp_tts.h / esp_tts_player.h）
 extern "C" {
-#include "audio/esp-sr/esp-tts/esp_tts_chinese/include/esp_tts.h"
-#include "audio/esp-sr/esp-tts/esp_tts_chinese/include/esp_tts_voice_template.h"
+#include "esp_tts.h"
+#include "esp_tts_voice_template.h"
 }
 
 // Align HTTP streaming behavior with Espressif esp-gmf `esp_gmf_io_http.c`:
@@ -1563,22 +1563,17 @@ void Audio::srDetectTask() {
       break;
     }
 
-    bool enterCommandMode = false;
     if (_srWakeupFlag == 0) {
       if (res->wakeup_state == WAKENET_DETECTED) {
-        enterCommandMode = true;
         if (!_ttsInitialized && !ttsInit()) {
           AUDIO_LOGLN("SR wake detected: ttsInit failed");
         } else {
           textToSpeech(_srWakeupReplyTts.c_str());
         }
-      } else if (res->wakeup_state == WAKENET_CHANNEL_VERIFIED) {
-        enterCommandMode = true;
-      }
-
-      if (enterCommandMode) {
         multinet->clean(model_data);
         afe->disable_wakenet(afe_data);
+        _srWakeupFlag = 1;
+      } else if (res->wakeup_state == WAKENET_CHANNEL_VERIFIED) {
         _srWakeupFlag = 1;
       }
     }
@@ -1596,13 +1591,11 @@ void Audio::srDetectTask() {
         multinet->clean(model_data);
         afe->enable_wakenet(afe_data);
         _srWakeupFlag = 0;
-        AUDIO_LOGLN("_srWakeupFlag clean");
         continue;
       }
       if (mn_state == ESP_MN_STATE_TIMEOUT) {
         multinet->clean(model_data);
         afe->enable_wakenet(afe_data);
-        AUDIO_LOGLN("_srWakeupFlag clean1");
         _srWakeupFlag = 0;
         continue;
       }
@@ -1694,8 +1687,7 @@ bool Audio::srBegin(const char *wakeupReplyTts,
   }
 
   afe_config_t *afe_cfg =
-      afe_config_init("M", reinterpret_cast<srmodel_list_t *>(_srModels), AFE_TYPE_SR,
-                      AFE_MODE_HIGH_PERF);
+      afe_config_init("M", reinterpret_cast<srmodel_list_t *>(_srModels));
   if (!afe_cfg) {
     AUDIO_LOGLN("SR begin: afe_config_init failed");
     esp_srmodel_deinit(reinterpret_cast<srmodel_list_t *>(_srModels));

@@ -3,7 +3,6 @@
 namespace {
 // 本地音频文件保存在 LittleFS 的固定路径。
 // 请先确认这个文件已经写入 LittleFS 的 lfs2 分区中。
-// 现在可以不写前导 /，库内部会自动补齐。
 constexpr char kAudioFile[] = "test.mp3";
 
 // 初始播放音量，范围通常为 0~100。
@@ -23,20 +22,6 @@ uint32_t gTouchReadyMs = 0;
 bool gTouchPPressed = false;
 bool gTouchYPressed = false;
 }  // namespace
-
-void printControlHints() {
-    Serial.println("A: pause/resume");
-    Serial.println("B: stop");
-    Serial.println("A+B: restart");
-    Serial.println("P touch: volume down");
-    Serial.println("Y touch: volume up");
-}
-
-void setVolumeAndPrint(uint8_t volume, const char *reason) {
-    gVolume = volume > 100 ? 100 : volume;
-    mPython.audio.setVolume(gVolume);
-    Serial.printf("%s volume=%u\n", reason, (unsigned)gVolume);
-}
 
 void calibrateTouchPad(TouchPad &pad, const char *name) {
     uint32_t sum = 0;
@@ -78,14 +63,20 @@ void setup() {
     calibrateTouchPad(mPython.touchPadY, "Y");
 
     // 设置播放音量。
-    setVolumeAndPrint(kInitialVolume, "Init");
+    gVolume = kInitialVolume;
+    mPython.audio.setVolume(gVolume);
+    Serial.printf("Init volume=%u\n", (unsigned)gVolume);
 
     // 播放 LittleFS 中已有的本地音频文件。play() 会立即返回，可在主线程里查看播放状态。
     if (!startPlayback()) {
         return;
     }
 
-    printControlHints();
+    Serial.println("A: pause/resume");
+    Serial.println("B: stop");
+    Serial.println("A+B: restart");
+    Serial.println("P touch: volume down");
+    Serial.println("Y touch: volume up");
 }
 
 void loop() {
@@ -126,24 +117,27 @@ void loop() {
 
     if (pTouched && !gTouchPPressed) {
         uint8_t nextVolume = gVolume > kVolumeStep ? gVolume - kVolumeStep : 0;
-        setVolumeAndPrint(nextVolume, "P touched:");
+        gVolume = nextVolume;
+        mPython.audio.setVolume(gVolume);
+        Serial.printf("P touched: volume=%u\n", (unsigned)gVolume);
     }
     if (yTouched && !gTouchYPressed) {
         uint8_t nextVolume = gVolume >= 100 - kVolumeStep ? 100 : gVolume + kVolumeStep;
-        setVolumeAndPrint(nextVolume, "Y touched:");
+        gVolume = nextVolume;
+        mPython.audio.setVolume(gVolume);
+        Serial.printf("Y touched: volume=%u\n", (unsigned)gVolume);
     }
     gTouchPPressed = pTouched;
     gTouchYPressed = yTouched;
 
     Audio::PlayState state = mPython.audio.state();
     if (state != lastState || millis() - lastStatusMs >= kStatusIntervalMs) {
-        Serial.printf("state=%s volume=%u\n", mPython.audio.stateName(), (unsigned)gVolume);
+        Serial.printf("volume=%u\n", (unsigned)gVolume);
         lastState = state;
         lastStatusMs = millis();
     }
 
     if (state == Audio::PLAY_STATE_STOPPED || state == Audio::PLAY_STATE_ERROR) {
-        Serial.printf("final state=%s\n", mPython.audio.stateName());
         Serial.println("Press A+B to play again.");
         delay(300);
     }

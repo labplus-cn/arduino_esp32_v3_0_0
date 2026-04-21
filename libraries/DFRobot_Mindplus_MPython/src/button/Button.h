@@ -13,8 +13,6 @@ public:
     bool isPressed(void);
     void setPressedCallback(CBFunc _cb);
     void setUnPressedCallback(CBFunc _cb);
-    
-    uint8_t threshold;
 
 private:
     CBFunc pressedCb;

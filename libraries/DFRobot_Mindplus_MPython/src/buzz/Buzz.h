@@ -17,7 +17,7 @@ enum Beat {
 };
 
 //music
-enum Melodies {
+enum Music {
     DADADADUM = 0,
     ENTERTAINER,
     PRELUDE,
@@ -57,17 +57,9 @@ public:
     bool isOn(void);
     void setTicksTempo(uint32_t _ticks, uint32_t _tempo);
     void freq(uint32_t _freq = 500);
-    void freq(int _freq = 500);
-    void freq(double _freq = 500.0);
     void freq(uint32_t _freq, Beat beat);
-    void freq(int _freq, Beat beat);
-    void freq(double _freq, Beat beat);
-    void freq(uint32_t _freq, double beat);
-    void freq(uint32_t _freq, uint32_t beat);
-    void freq(uint32_t _freq, int beat);
-    void redirect(uint32_t pin);
     void stop();
-    void play(Melodies melodies, MelodyOptions options = Once);
+    void play(Music music, MelodyOptions options = Once);
 
 private:
     int16_t  _pin;
@@ -86,8 +78,8 @@ private:
         TaskHandle_t task;
     } buzzMelody;
 
-    void     playNextNote(String tone);
-    const char* const getMelody(Melodies melody);
+    void     playNextNote(String note);
+    const char* const getMelody(Music music);
     static void taskLoop(void *param);
 };
 

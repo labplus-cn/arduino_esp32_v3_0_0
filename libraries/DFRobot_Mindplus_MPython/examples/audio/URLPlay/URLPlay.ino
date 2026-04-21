@@ -1,5 +1,6 @@
 #include <MPython.h>
 
+// 需要改成你环境的wifi ssid 和 password。
 constexpr char kWiFiSsid[] = "YOUR_WIFI_SSID";
 constexpr char kWiFiPassword[] = "YOUR_WIFI_PASSWORD";
 

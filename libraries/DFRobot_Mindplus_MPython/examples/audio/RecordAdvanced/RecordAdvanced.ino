@@ -21,6 +21,7 @@ constexpr uint8_t kChannels = 1;
 constexpr uint8_t kPlayVolume = 80;
 }  // namespace
 
+
 void setup() {
     Serial.begin(115200);
     delay(1500);
@@ -53,15 +54,13 @@ void setup() {
         return;
     }
 
-    // 循环输出当前播放状态，直到播放结束。
-    while (mPython.audio.playing()) {
-        Serial.printf("state=%s\n", mPython.audio.stateName());
+    // 循环等待播放结束。
+    while (mPython.audio.state() == Audio::PLAY_STATE_PLAYING) {
         delay(300);
     }
 
-    // 输出最终播放状态，便于判断是正常结束还是异常停止。
-    Serial.printf("final state=%s\n", mPython.audio.stateName());
     Serial.println("Done.");
+
 }
 
 void loop() {

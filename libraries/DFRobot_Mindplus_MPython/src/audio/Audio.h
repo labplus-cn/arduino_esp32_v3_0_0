@@ -74,10 +74,10 @@ public:
     bool srAddCommand(int commandId, const char *phraseUtf8);
     bool srClearCommands();
     bool srApplyCommands();
-    void srEnd();
     int srGetCommandId();
 
 private:
+    void srEnd();
     static constexpr int I2C_PORT = 0;
     static constexpr int I2S_PORT = 0;
     static constexpr uint8_t DEFAULT_VOLUME = 80;
@@ -172,6 +172,7 @@ private:
     volatile int _srTaskFlag;
     volatile int _srLatestCommandId;
     volatile int _srWakeupFlag;
+    volatile bool _srWaitWakeRelease;
     volatile bool _srMultinetReady;
     void *_srMultinet;
     void *_srMnModel;

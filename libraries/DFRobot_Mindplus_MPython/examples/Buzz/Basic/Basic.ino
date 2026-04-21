@@ -7,10 +7,8 @@ void setup() {
   // 初始化串口
   Serial.begin(115200);
   Serial.println("Buzz example started!");
-}
 
-void loop() {
-  // 播放一个频率
+    // 播放一个频率
   Serial.println("Playing 500Hz for 1 second");
   mPython.buzz.freq(500);
   mPython.buzz.on();
@@ -35,4 +33,7 @@ void loop() {
   Serial.println("Playing entertainer melody");
   mPython.buzz.play(ENTERTAINER);
   delay(5000);
+}
+
+void loop() {
 }

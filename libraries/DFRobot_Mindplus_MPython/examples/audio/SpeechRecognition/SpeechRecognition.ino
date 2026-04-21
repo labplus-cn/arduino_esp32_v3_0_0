@@ -8,7 +8,6 @@
  *
  * 说明：
  * - 与 startRecord() 不能同时使用；识别运行期间串口会打印识别到的 command id。
- * - 唤醒后可选 TTS 应答：先 ttsInit()，再在 srBegin 第一个参数传入 UTF-8 文本。
  */
 
 #include <MPython.h>
@@ -51,7 +50,6 @@ void setup() {
 
   if (!mPython.audio.srApplyCommands()) {
     Serial.println("srApplyCommands failed (phrases may be invalid for this multinet).");
-    mPython.audio.srEnd();
     while (true) {
       delay(2000);
     }

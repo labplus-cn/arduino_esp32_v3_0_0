@@ -12,7 +12,6 @@ Button::Button(uint8_t _io)
 {
     pinMode(io, INPUT | PULLUP);
     prevState = isPressed(); // 初始化prevState为按钮的实际状态
-    threshold = 35;
 }
 
 Button::Button(uint8_t _io1, uint8_t _io2)
@@ -21,7 +20,6 @@ Button::Button(uint8_t _io1, uint8_t _io2)
     pinMode(io1, INPUT | PULLUP);
     pinMode(io2, INPUT | PULLUP);
     prevState = isPressed(); // 初始化prevState为按钮的实际状态
-    threshold = 35;
 }
 
 bool Button::isPressed(void)

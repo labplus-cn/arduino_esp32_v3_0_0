@@ -75,15 +75,7 @@ void Buzz::freq(uint32_t _freq)
     tone(_pin, _freq);
 }
 
-void Buzz::freq(int _freq)
-{
-    freq((uint32_t)_freq);
-}
 
-void Buzz::freq(double _freq)
-{
-    freq((uint32_t)_freq);
-}
 
 void Buzz::freq(uint32_t _freq, Beat beat)
 {
@@ -130,59 +122,13 @@ void Buzz::freq(uint32_t _freq, Beat beat)
     off();
 }
 
-void Buzz::freq(int _freq, Beat beat)
-{
-    freq((uint32_t)_freq, beat);
-}
-
-void Buzz::freq(double _freq, Beat beat)
-{
-    freq((uint32_t)_freq, beat);
-}
-
-void Buzz::freq(uint32_t _freq, double beat)
-{
-    if (!_on)
-    {
-        on();
-        _on = true;
-    }
-    tone(_pin, _freq);
-    delay(beat);
-    off();
-    delay(5);
-}
-
-void Buzz::freq(uint32_t _freq, uint32_t beat)
-{
-    freq(_freq, (double)beat);
-}
-
-void Buzz::freq(uint32_t _freq, int beat)
-{
-    freq(_freq, (double)beat);
-}
-
-void Buzz::redirect(uint32_t pin)
-{
-    if (_pin == pin)
-    {
-        return;
-    }
-    if (_pin > 0)
-    {
-        off();
-    }
-    _pin = pin;
-}
-
-void Buzz::play(Melodies melodies, MelodyOptions options)
+void Buzz::play(Music music, MelodyOptions options)
 {
     stop();
     buzzMelody.currentDuration = 4; //Default duration (Crotchet)
     buzzMelody.currentOctave = 4;   //Middle octave
     buzzMelody.beatsPerMinute = 120;
-    buzzMelody.melody = String(getMelody(melodies));
+    buzzMelody.melody = String(getMelody(music));
     buzzMelody.opt = options;
     if (buzzMelody.melody == "null")
         return;
@@ -220,15 +166,15 @@ void Buzz::stop()
     }
 }
 
-void Buzz::playNextNote(String tone)
+void Buzz::playNextNote(String note)
 {
     // cache elements
-    String currNote = tone;
+    String currNote = note;
     int currentDuration = buzzMelody.currentDuration;
     int currentOctave = buzzMelody.currentOctave;
     String currLen = currNote;
 
-    int note = 0;
+    int noteValue = 0;
     boolean isrest = false;
     int beatPos;
     boolean parsingOctave = true;
@@ -240,38 +186,38 @@ void Buzz::playNextNote(String tone)
         {
         case 'c':
         case 'C':
-            note = 1;
+            noteValue = 1;
             break;
         case 'd':
         case 'D':
-            note = 3;
+            noteValue = 3;
             break;
         case 'e':
         case 'E':
-            note = 5;
+            noteValue = 5;
             break;
         case 'f':
         case 'F':
-            note = 6;
+            noteValue = 6;
             break;
         case 'g':
         case 'G':
-            note = 8;
+            noteValue = 8;
             break;
         case 'a':
         case 'A':
-            note = 10;
+            noteValue = 10;
             break;
         case 'b':
         case 'B':
-            note = 12;
+            noteValue = 12;
             break;
         case 'r':
         case 'R':
             isrest = true;
             break;
         case '#':
-            note++;
+            noteValue++;
             break;
         case ':':
             parsingOctave = false;
@@ -293,17 +239,26 @@ void Buzz::playNextNote(String tone)
     }
     else
     {
-        int keyNumber = note + (12 * (currentOctave - 1));
+        int keyNumber = noteValue + (12 * (currentOctave - 1));
         int frequency = keyNumber >= 0 && keyNumber < sizeof(freqTable) / sizeof(freqTable[0]) ? freqTable[keyNumber] : 0;
-        freq(frequency, currentDuration * beat);
+        if (frequency > 0) {
+            if (!_on) {
+                on();
+                _on = true;
+            }
+            tone(_pin, frequency);
+            delay(currentDuration * beat);
+            off();
+            delay(5);
+        }
     }
     buzzMelody.currentDuration = currentDuration;
     buzzMelody.currentOctave = currentOctave;
 }
 
-const char *const Buzz::getMelody(Melodies melody)
+const char *const Buzz::getMelody(Music music)
 {
-    switch (melody)
+    switch (music)
     {
     case DADADADUM:
         return dadadadum;
