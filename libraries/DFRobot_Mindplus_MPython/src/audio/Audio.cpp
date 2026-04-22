@@ -37,18 +37,16 @@ extern "C" {
 #define AUDIO_HTTP_TIMEOUT_MS   (30 * 1000)
 #define AUDIO_HTTP_MAX_REDIRECT 5
 
-#include "debug/Debug.h"
-
 // 为 Audio 模块定义调试宏
-#define AUDIO_ERROR(format, ...) DEBUG_ERROR("[Audio] " format, ##__VA_ARGS__)
-#define AUDIO_WARN(format, ...) DEBUG_WARN("[Audio] " format, ##__VA_ARGS__)
-#define AUDIO_INFO(format, ...) DEBUG_INFO("[Audio] " format, ##__VA_ARGS__)
-#define AUDIO_DEBUG(format, ...) DEBUG_DEBUG("[Audio] " format, ##__VA_ARGS__)
+#define AUDIO_ERROR(format, ...) Serial.printf("[Audio] " format, ##__VA_ARGS__)
+#define AUDIO_WARN(format, ...) Serial.printf("[Audio] " format, ##__VA_ARGS__)
+#define AUDIO_INFO(format, ...) Serial.printf("[Audio] " format, ##__VA_ARGS__)
+#define AUDIO_DEBUG(format, ...) Serial.printf("[Audio] " format, ##__VA_ARGS__)
 
-#define AUDIO_ERRORLN(msg) DEBUG_ERRORLN("[Audio] " msg)
-#define AUDIO_WARNLN(msg) DEBUG_WARNLN("[Audio] " msg)
-#define AUDIO_INFOLN(msg) DEBUG_INFOLN("[Audio] " msg)
-#define AUDIO_DEBUGLN(msg) DEBUG_DEBUGLN("[Audio] " msg)
+#define AUDIO_ERRORLN(msg) Serial.println("[Audio] " msg)
+#define AUDIO_WARNLN(msg) Serial.println("[Audio] " msg)
+#define AUDIO_INFOLN(msg) Serial.println("[Audio] " msg)
+#define AUDIO_DEBUGLN(msg) Serial.println("[Audio] " msg)
 
 extern "C" {
 int audio_codec_delete_codec_if(const audio_codec_if_t *codec_if);
