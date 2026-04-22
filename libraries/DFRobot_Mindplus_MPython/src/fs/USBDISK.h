@@ -6,21 +6,46 @@
 #include "USBMSC.h"
 #include "esp_partition.h"
 
-// 将 flash 分区通过 USB MSC 暴露为 U 盘
+/**
+ * @brief USBDISK 类
+ *
+ * 将 flash 分区通过 USB MSC 暴露为 U 盘
+ */
 class USBDISK {
 public:
+    /**
+     * @brief 构造函数
+     *
+     * 初始化 USBDISK 实例
+     */
     USBDISK();
 
-    // 初始化并启动 USB MSC，partitionLabel 为分区名（默认 "spiffs"）
+    /**
+     * @brief 初始化并启动 USB MSC
+     *
+     * @param partitionLabel 分区名（默认 "spiffs"）
+     * @param vendorID 厂商 ID
+     * @param productID 产品 ID
+     * @param revision 版本号
+     * @return bool 初始化结果
+     */
     bool begin(const char *partitionLabel = "spiffs",
                const char *vendorID       = "mPython",
                const char *productID      = "Flash Disk",
                const char *revision       = "1.0");
 
-    // 停止 USB MSC
+    /**
+     * @brief 停止 USB MSC
+     *
+     * 停止 USB 存储功能
+     */
     void end();
 
-    // 是否已挂载
+    /**
+     * @brief 检查是否已挂载
+     *
+     * @return bool 挂载状态
+     */
     bool mounted() const { return _mounted; }
 
 private:

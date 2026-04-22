@@ -1,0 +1,90 @@
+WiFi 模块 API
+==============
+
+概述
+----
+WiFi 模块用于控制 mPython 开发板的 WiFi 功能，支持连接网络、创建热点等功能。
+
+函数列表
+--------
+
+1. 初始化 WiFi
+~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.wifi.init()
+
+- **功能**：初始化 WiFi 模块
+- **参数**：无
+- **返回值**：无
+
+2. 连接 WiFi
+~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.wifi.connect(ssid, password)
+
+- **功能**：连接到指定的 WiFi 网络
+- **参数**：
+  - `ssid`：WiFi 网络名称
+  - `password`：WiFi 密码
+- **返回值**：连接状态（True表示成功，False表示失败）
+
+3. 断开 WiFi
+~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.wifi.disconnect()
+
+- **功能**：断开 WiFi 连接
+- **参数**：无
+- **返回值**：无
+
+4. 获取 IP 地址
+~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.wifi.get_ip()
+
+- **功能**：获取当前 IP 地址
+- **参数**：无
+- **返回值**：IP 地址字符串
+
+5. 创建热点
+~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.wifi.start_ap(ssid, password)
+
+- **功能**：创建 WiFi 热点
+- **参数**：
+  - `ssid`：热点名称
+  - `password`：热点密码
+- **返回值**：创建状态（True表示成功，False表示失败）
+
+6. 停止热点
+~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.wifi.stop_ap()
+
+- **功能**：停止 WiFi 热点
+- **参数**：无
+- **返回值**：无
+
+7. 扫描 WiFi 网络
+~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.wifi.scan()
+
+- **功能**：扫描周围的 WiFi 网络
+- **参数**：无
+- **返回值**：WiFi 网络列表

@@ -1,0 +1,128 @@
+显示模块 API
+=============
+
+概述
+----
+显示模块用于控制 mPython 开发板上的 LCD 显示屏，支持文本显示、图形绘制等功能。
+
+函数列表
+--------
+
+1. 初始化显示
+~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.display.init()
+
+- **功能**：初始化显示模块
+- **参数**：无
+- **返回值**：无
+
+2. 清屏
+~~~~~~~
+
+.. code-block:: python
+
+    mPython.display.clear()
+
+- **功能**：清除显示屏内容
+- **参数**：无
+- **返回值**：无
+
+3. 显示文本
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.display.text(text, x, y, color=0xffffff)
+
+- **功能**：在指定位置显示文本
+- **参数**：
+  - `text`：要显示的文本内容
+  - `x`：X坐标
+  - `y`：Y坐标
+  - `color`：文本颜色，默认为白色(0xffffff)
+- **返回值**：无
+
+4. 绘制像素
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.display.pixel(x, y, color)
+
+- **功能**：在指定位置绘制像素点
+- **参数**：
+  - `x`：X坐标
+  - `y`：Y坐标
+  - `color`：像素颜色
+- **返回值**：无
+
+5. 绘制线段
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.display.line(x1, y1, x2, y2, color)
+
+- **功能**：绘制线段
+- **参数**：
+  - `x1, y1`：起点坐标
+  - `x2, y2`：终点坐标
+  - `color`：线段颜色
+- **返回值**：无
+
+6. 绘制矩形
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.display.rect(x, y, width, height, color, filled=False)
+
+- **功能**：绘制矩形
+- **参数**：
+  - `x, y`：左上角坐标
+  - `width`：宽度
+  - `height`：高度
+  - `color`：矩形颜色
+  - `filled`：是否填充，默认为False
+- **返回值**：无
+
+7. 绘制圆形
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.display.circle(x, y, radius, color, filled=False)
+
+- **功能**：绘制圆形
+- **参数**：
+  - `x, y`：圆心坐标
+  - `radius`：半径
+  - `color`：圆形颜色
+  - `filled`：是否填充，默认为False
+- **返回值**：无
+
+8. 显示图像
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.display.image(image)
+
+- **功能**：显示图像
+- **参数**：
+  - `image`：图像数据
+- **返回值**：无
+
+9. 更新显示
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.display.show()
+
+- **功能**：更新显示内容
+- **参数**：无
+- **返回值**：无

@@ -1,0 +1,90 @@
+音频模块 API
+==============
+
+概述
+----
+音频模块用于控制 mPython 开发板上的音频功能，支持播放音频文件、录制音频等功能。
+
+函数列表
+--------
+
+1. 初始化音频模块
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.audio.init()
+
+- **功能**：初始化音频模块
+- **参数**：无
+- **返回值**：无
+
+2. 播放音频文件
+~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.audio.play(filename)
+
+- **功能**：播放指定的音频文件
+- **参数**：
+  - `filename`：音频文件路径
+- **返回值**：无
+
+3. 暂停播放
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.audio.pause()
+
+- **功能**：暂停音频播放
+- **参数**：无
+- **返回值**：无
+
+4. 恢复播放
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.audio.resume()
+
+- **功能**：恢复音频播放
+- **参数**：无
+- **返回值**：无
+
+5. 停止播放
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.audio.stop()
+
+- **功能**：停止音频播放
+- **参数**：无
+- **返回值**：无
+
+6. 设置音量
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.audio.set_volume(volume)
+
+- **功能**：设置音频音量
+- **参数**：
+  - `volume`：音量值（0-100）
+- **返回值**：无
+
+7. 录制音频
+~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.audio.record(filename, duration)
+
+- **功能**：录制音频并保存到文件
+- **参数**：
+  - `filename`：保存文件名
+  - `duration`：录制时长（秒）
+- **返回值**：无

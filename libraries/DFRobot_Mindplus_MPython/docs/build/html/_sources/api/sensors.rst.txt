@@ -1,0 +1,86 @@
+传感器模块 API
+==============
+
+概述
+----
+传感器模块用于读取 mPython 开发板上的各种传感器数据，支持温度、湿度、光照等传感器。
+
+函数列表
+--------
+
+1. 初始化传感器
+~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.sensors.init()
+
+- **功能**：初始化传感器模块
+- **参数**：无
+- **返回值**：无
+
+2. 读取温度
+~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.sensors.get_temperature()
+
+- **功能**：读取温度传感器数据
+- **参数**：无
+- **返回值**：温度值（摄氏度）
+
+3. 读取湿度
+~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.sensors.get_humidity()
+
+- **功能**：读取湿度传感器数据
+- **参数**：无
+- **返回值**：湿度值（百分比）
+
+4. 读取光照
+~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.sensors.get_light()
+
+- **功能**：读取光照传感器数据
+- **参数**：无
+- **返回值**：光照值（勒克斯）
+
+5. 读取加速度
+~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.sensors.get_acceleration()
+
+- **功能**：读取加速度传感器数据
+- **参数**：无
+- **返回值**：加速度值（x, y, z）
+
+6. 读取陀螺仪
+~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.sensors.get_gyroscope()
+
+- **功能**：读取陀螺仪传感器数据
+- **参数**：无
+- **返回值**：陀螺仪值（x, y, z）
+
+7. 读取磁力计
+~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+    mPython.sensors.get_magnetometer()
+
+- **功能**：读取磁力计传感器数据
+- **参数**：无
+- **返回值**：磁力计值（x, y, z）
