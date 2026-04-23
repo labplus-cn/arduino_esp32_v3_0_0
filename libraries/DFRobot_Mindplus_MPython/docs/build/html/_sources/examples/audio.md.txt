@@ -8,10 +8,6 @@
 
 本示例演示了如何使用 Audio 类播放音频文件。
 
-### 功能演示图片
-
-![音频播放](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20audio%20playback%20interface&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -67,10 +63,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何使用 Audio 类进行录音。
-
-### 功能演示图片
-
-![录音功能](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20recording%20interface&image_size=landscape_16_9)
 
 ### 示例代码
 
@@ -136,10 +128,6 @@ void loop() {
 
 本示例演示了如何使用 Audio 类的语音合成功能。
 
-### 功能演示图片
-
-![语音合成](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20text-to-speech%20interface&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -190,10 +178,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何使用 Audio 类的语音识别功能。
-
-### 功能演示图片
-
-![语音识别](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20voice%20recognition%20interface&image_size=landscape_16_9)
 
 ### 示例代码
 

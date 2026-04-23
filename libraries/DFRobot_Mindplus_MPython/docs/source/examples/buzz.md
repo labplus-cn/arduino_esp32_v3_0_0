@@ -8,10 +8,6 @@
 
 本示例演示了如何控制蜂鸣器发出不同音调。
 
-### 功能演示图片
-
-![基本音调控制](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20buzzer%20component&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -65,10 +61,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何使用蜂鸣器播放内置音乐。
-
-### 功能演示图片
-
-![音乐播放](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20music%20playback%20status&image_size=landscape_16_9)
 
 ### 示例代码
 
@@ -127,10 +119,6 @@ void loop() {
 
 本示例演示了如何使用蜂鸣器的节拍控制功能。
 
-### 功能演示图片
-
-![节拍控制](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20musical%20notes%20with%20beats&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -186,8 +174,6 @@ void loop() {
 本示例演示了如何通过按钮控制蜂鸣器的开关和音调。
 
 ### 功能演示图片
-
-![按钮控制蜂鸣器](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20buttons%20and%20buzzer&image_size=landscape_16_9)
 
 ### 示例代码
 

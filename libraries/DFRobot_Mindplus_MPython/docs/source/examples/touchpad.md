@@ -8,10 +8,6 @@
 
 本示例演示了如何检测触摸板的触摸状态。
 
-### 功能演示图片
-
-![基本触摸检测](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20touch%20pads%20and%20display%20showing%20touch%20state&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -56,10 +52,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何使用触摸板控制 RGB LED。
-
-### 功能演示图片
-
-![触摸控制 LED](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20touch%20pads%20controlling%20RGB%20LEDs&image_size=landscape_16_9)
 
 ### 示例代码
 
@@ -114,10 +106,6 @@ void loop() {
 
 本示例演示了如何读取触摸板的触摸值。
 
-### 功能演示图片
-
-![触摸值读取](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20touch%20pad%20values&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -165,10 +153,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何使用触摸板的回调函数。
-
-### 功能演示图片
-
-![触摸回调函数](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20touch%20callback%20events&image_size=landscape_16_9)
 
 ### 示例代码
 

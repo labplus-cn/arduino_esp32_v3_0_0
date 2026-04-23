@@ -8,10 +8,6 @@
 
 本示例演示了如何检测按钮的按下状态。
 
-### 功能演示图片
-
-![基本按钮检测](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20buttons%20and%20display%20showing%20button%20state&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -59,10 +55,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何使用按钮控制 RGB LED。
-
-### 功能演示图片
-
-![按钮控制 LED](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20buttons%20and%20RGB%20LEDs&image_size=landscape_16_9)
 
 ### 示例代码
 
@@ -116,10 +108,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何使用按钮的回调函数。
-
-### 功能演示图片
-
-![按钮回调函数](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20button%20callback%20events&image_size=landscape_16_9)
 
 ### 示例代码
 
@@ -182,10 +170,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何使用按钮进行计数。
-
-### 功能演示图片
-
-![按钮计数](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20button%20count&image_size=landscape_16_9)
 
 ### 示例代码
 

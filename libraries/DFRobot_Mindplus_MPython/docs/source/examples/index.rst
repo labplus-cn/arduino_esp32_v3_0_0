@@ -13,4 +13,3 @@
    touchpad
    wifi
    sensors
-   usbdisk

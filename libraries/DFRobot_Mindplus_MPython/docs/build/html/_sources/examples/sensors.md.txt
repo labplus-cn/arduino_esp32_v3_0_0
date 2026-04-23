@@ -8,10 +8,6 @@
 
 本示例演示了如何读取加速度计的数据。
 
-### 功能演示图片
-
-![加速度计数据读取](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20accelerometer%20data&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -55,10 +51,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何使用加速度计进行手势检测。
-
-### 功能演示图片
-
-![手势检测](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20gesture%20detection%20result&image_size=landscape_16_9)
 
 ### 示例代码
 
@@ -121,10 +113,6 @@ void loop() {
 
 本示例演示了如何读取磁力计的数据。
 
-### 功能演示图片
-
-![磁力计数据读取](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20magnetometer%20data&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -166,10 +154,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何读取光线传感器的数据。
-
-### 功能演示图片
-
-![光线传感器数据读取](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20light%20sensor%20data&image_size=landscape_16_9)
 
 ### 示例代码
 

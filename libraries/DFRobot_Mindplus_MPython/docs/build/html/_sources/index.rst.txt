@@ -11,6 +11,7 @@ mPython 开发板文档
    :caption: 目录:
 
    README
+   arduino_setup
    api/index
    examples/index
 

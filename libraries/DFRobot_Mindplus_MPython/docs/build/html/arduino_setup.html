@@ -2,10 +2,12 @@
 <html class="no-js" lang="chinese" data-content_root="./">
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="#"><link rel="search" title="Search" href="search.html">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="API 参考文档" href="api/index.html"><link rel="prev" title="mPython库概述" href="README.html">
 
-    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 --><title>Index - 掌控板3.0 arduino库 v1.0 documentation</title>
-<link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
+        <title>Arduino 开发环境搭建及库安装 - 掌控板3.0 arduino库 v1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
     
@@ -179,7 +181,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
       </label>
     </div>
@@ -198,9 +200,9 @@
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">目录:</span></p>
-<ul>
+<ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="README.html">mPython库概述</a></li>
-<li class="toctree-l1"><a class="reference internal" href="arduino_setup.html">Arduino 开发环境搭建及库安装</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Arduino 开发环境搭建及库安装</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="api/index.html">API 参考文档</a><input aria-label="Toggle navigation of API 参考文档" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="api/display.html">Display API 参考</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/rgb.html">RGB API 参考</a></li>
@@ -242,7 +244,13 @@
           <span>Back to top</span>
         </a>
         <div class="content-icon-container">
-          <div class="theme-toggle-container theme-toggle-content">
+          <div class="view-this-page">
+  <a class="muted-link" href="_sources/arduino_setup.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
             <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
               <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
               <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
@@ -250,15 +258,136 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          
-<section class="genindex-section">
-  <h1 id="index">Index</h1>
-  <div class="genindex-jumpbox"></div>
+          <section class="tex2jax_ignore mathjax_ignore" id="arduino">
+<h1>Arduino 开发环境搭建及库安装<a class="headerlink" href="#arduino" title="Link to this heading">¶</a></h1>
+<p>本文档介绍如何搭建 Arduino 开发环境并安装 DFRobot_Mindplus_MPython 库。</p>
+<section id="id1">
+<h2>1. 开发环境搭建<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<section id="id2">
+<h3>1.1 下载安装包<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>访问 <a class="reference external" href="https://www.arduino.cc/en/software">Arduino官网下载页</a>，根据你的系统选择对应版本的Arduino IDE下载并安装：</p>
+</section>
+<section id="id3">
+<h3>1.2 添加掌控板支持<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>打开Arduino IDE，点击「File」→「Preferences」</p></li>
+<li><p>在「Additional boards manager URLs」中填入<a class="reference external" href="https://raw.githubusercontent.com/labplus-cn/arduino-esp32/refs/heads/gh-pages/package_esp32_mpython_index_cn.json">掌控板开发支持URL</a></p></li>
+<li><p>点击「OK」保存</p></li>
+</ol>
+<p><img alt="添加板支持" src="_images/preferences.png" /></p>
+</section>
+</section>
+<section id="id4">
+<h2>2. 库安装<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<section id="arduino-ide">
+<h3>2.1 通过 Arduino IDE 库管理器安装<a class="headerlink" href="#arduino-ide" title="Link to this heading">¶</a></h3>
+<ol class="arabic simple">
+<li><p>打开 Arduino IDE，点击「Sketch」→「Include Library」→「Manage Libraries…」</p></li>
+<li><p>在搜索框中输入「mpython」</p></li>
+<li><p>找到库后，点击「Install」按钮进行安装</p></li>
+<li><p>等待安装完成，即可在项目中使用该库</p></li>
+</ol>
+<p><img alt="安装库" src="_images/board_install.png" /></p>
+</section>
+<section id="id5">
+<h3>2.2 选择掌控板开发板<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<p>在IDE界面选择掌控板开发板：</p>
+<p><img alt="选择板" src="_images/board_select.png" /></p>
+</section>
+</section>
+<section id="id6">
+<h2>3. 验证安装<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<ol class="arabic simple">
+<li><p>打开 Arduino IDE，创建一个新的项目</p></li>
+<li><p>在代码编辑器中输入以下代码：</p></li>
+</ol>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;MPython.h&gt;</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">setup</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// 初始化硬件</span>
+<span class="w">  </span><span class="n">mPython</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1">// 清空屏幕</span>
+<span class="w">  </span><span class="n">mPython</span><span class="p">.</span><span class="n">display</span><span class="p">.</span><span class="n">fillScreen</span><span class="p">(</span><span class="mh">0x0000</span><span class="p">);</span>
+<span class="w">  </span><span class="n">mPython</span><span class="p">.</span><span class="n">display</span><span class="p">.</span><span class="n">drawText</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Hello, mPython!&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0xFFFF</span><span class="p">);</span>
+<span class="w">  </span><span class="n">mPython</span><span class="p">.</span><span class="n">display</span><span class="p">.</span><span class="n">show</span><span class="p">();</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1">// 点亮 RGB LED</span>
+<span class="w">  </span><span class="n">mPython</span><span class="p">.</span><span class="n">rgb</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span>
+<span class="w">  </span><span class="n">mPython</span><span class="p">.</span><span class="n">rgb</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">255</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">);</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1">// 蜂鸣器发声</span>
+<span class="w">  </span><span class="n">mPython</span><span class="p">.</span><span class="n">buzz</span><span class="p">.</span><span class="n">begin</span><span class="p">();</span>
+<span class="w">  </span><span class="n">mPython</span><span class="p">.</span><span class="n">buzz</span><span class="p">.</span><span class="n">freq</span><span class="p">(</span><span class="mi">1000</span><span class="p">);</span>
+<span class="w">  </span><span class="n">delay</span><span class="p">(</span><span class="mi">1000</span><span class="p">);</span>
+<span class="w">  </span><span class="n">mPython</span><span class="p">.</span><span class="n">buzz</span><span class="p">.</span><span class="n">off</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="kt">void</span><span class="w"> </span><span class="nf">loop</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="c1">// 读取按钮状态</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">mPython</span><span class="p">.</span><span class="n">buttonA</span><span class="p">.</span><span class="n">isPressed</span><span class="p">())</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="n">mPython</span><span class="p">.</span><span class="n">display</span><span class="p">.</span><span class="n">drawText</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span><span class="w"> </span><span class="mi">30</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;Button A pressed!&quot;</span><span class="p">,</span><span class="w"> </span><span class="mh">0x00FF00</span><span class="p">);</span>
+<span class="w">    </span><span class="n">mPython</span><span class="p">.</span><span class="n">display</span><span class="p">.</span><span class="n">show</span><span class="p">();</span>
+<span class="w">  </span><span class="p">}</span>
+<span class="w">  </span><span class="n">delay</span><span class="p">(</span><span class="mi">100</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p>选择正确的开发板和串口</p></li>
+<li><p>点击「Upload」按钮上传代码</p></li>
+<li><p>观察掌控板的反应：</p>
+<ul class="simple">
+<li><p>屏幕显示 “Hello, mPython!”</p></li>
+<li><p>RGB LED 点亮红色</p></li>
+<li><p>蜂鸣器发出一声蜂鸣</p></li>
+<li><p>按下按钮A时，屏幕显示 “Button A pressed!”</p></li>
+</ul>
+</li>
+</ol>
+<p>如果以上步骤都能正常完成，说明开发环境搭建和库安装成功。</p>
+</section>
+<section id="id7">
+<h2>4. 常见问题解决<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<section id="id8">
+<h3>4.1 无法找到掌控板开发板<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>检查「Additional boards manager URLs」是否正确设置</p></li>
+<li><p>确保已安装mPython掌控板支持包</p></li>
+<li><p>重启Arduino IDE后再次尝试</p></li>
+</ul>
+</section>
+<section id="id9">
+<h3>4.2 无法上传代码<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>检查USB驱动是否正确安装</p></li>
+<li><p>确认选择了正确的串口</p></li>
+<li><p>尝试更换USB线缆或USB端口</p></li>
+<li><p>确保掌控板处于正常工作状态</p></li>
+</ul>
+</section>
+<section id="id10">
+<h3>4.3 库文件缺失或编译错误<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>检查库是否正确安装</p></li>
+<li><p>确认代码中包含了正确的头文件 <code class="docutils literal notranslate"><span class="pre">#include</span> <span class="pre">&lt;MPython.h&gt;</span></code></p></li>
+<li><p>尝试重新安装库文件</p></li>
+</ul>
+</section>
+</section>
+<section id="id11">
+<h2>5. 参考资源<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.arduino.cc/">Arduino官网</a></p></li>
+<li><p><a class="reference external" href="https://mpython-esp32s3-doc.readthedocs.io/zh-cn/latest/">掌控板3.0文档</a></p></li>
+<li><p><a class="reference external" href="https://www.dfrobot.com/">DFRobot官方网站</a></p></li>
+</ul>
+</section>
 </section>
 
         </article>
@@ -266,8 +395,26 @@
       <footer>
         
         <div class="related-pages">
-          
-          
+          <a class="next-page" href="api/index.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">API 参考文档</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="README.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">mPython库概述</div>
+                
+              </div>
+            </a>
         </div>
         <div class="bottom-of-page">
           <div class="left-details">
@@ -286,8 +433,44 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Arduino 开发环境搭建及库安装</a><ul>
+<li><a class="reference internal" href="#id1">1. 开发环境搭建</a><ul>
+<li><a class="reference internal" href="#id2">1.1 下载安装包</a></li>
+<li><a class="reference internal" href="#id3">1.2 添加掌控板支持</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id4">2. 库安装</a><ul>
+<li><a class="reference internal" href="#arduino-ide">2.1 通过 Arduino IDE 库管理器安装</a></li>
+<li><a class="reference internal" href="#id5">2.2 选择掌控板开发板</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id6">3. 验证安装</a></li>
+<li><a class="reference internal" href="#id7">4. 常见问题解决</a><ul>
+<li><a class="reference internal" href="#id8">4.1 无法找到掌控板开发板</a></li>
+<li><a class="reference internal" href="#id9">4.2 无法上传代码</a></li>
+<li><a class="reference internal" href="#id10">4.3 库文件缺失或编译错误</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id11">5. 参考资源</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

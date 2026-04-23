@@ -8,10 +8,6 @@
 
 本示例演示了如何在显示屏上显示文本和基本图形。
 
-### 功能演示图片
-
-![基本文本显示](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20text%20and%20basic%20graphics&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -51,10 +47,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何在显示屏上绘制各种图形，包括线条、矩形、圆形等。
-
-### 功能演示图片
-
-![图形绘制](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20various%20shapes%20and%20colors&image_size=landscape_16_9)
 
 ### 示例代码
 
@@ -103,10 +95,6 @@ void loop() {
 
 本示例演示了如何在显示屏上显示二维码。
 
-### 功能演示图片
-
-![二维码显示](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20QR%20code&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -140,10 +128,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何在显示屏上动态显示文本，例如显示传感器数据。
-
-### 功能演示图片
-
-![动态文本显示](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20dynamic%20sensor%20data&image_size=landscape_16_9)
 
 ### 示例代码
 

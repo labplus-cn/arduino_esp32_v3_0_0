@@ -1,45 +1,12 @@
-# DFRobot_Mindplus_MPython 库文档
+# mPython库概述
 
 本文档提供了 DFRobot_Mindplus_MPython 库的详细使用指南和 API 参考。
 
 ## 文档结构
 
-- [API 参考文档](api_reference.md) - 完整的 API 参考
-- [示例文档](examples.md) - 综合示例
-
-### 按功能部件分类的文档
-
-#### 显示相关
-- [Display API](api/display.md) - 显示屏 API 参考
-- [Display 示例](examples/display.md) - 显示屏使用示例
-
-#### 灯光相关
-- [RGB API](api/rgb.md) - RGB LED API 参考
-- [RGB 示例](examples/rgb.md) - RGB LED 使用示例
-
-#### 声音相关
-- [Buzz API](api/buzz.md) - 蜂鸣器 API 参考
-- [Buzz 示例](examples/buzz.md) - 蜂鸣器使用示例
-- [Audio API](api/audio.md) - 音频模块 API 参考
-- [Audio 示例](examples/audio.md) - 音频模块使用示例
-
-#### 输入相关
-- [Button API](api/button.md) - 按钮 API 参考
-- [Button 示例](examples/button.md) - 按钮使用示例
-- [TouchPad API](api/touchpad.md) - 触摸板 API 参考
-- [TouchPad 示例](examples/touchpad.md) - 触摸板使用示例
-
-#### 网络相关
-- [WiFi API](api/wifi.md) - WiFi 模块 API 参考
-- [WiFi 示例](examples/wifi.md) - WiFi 模块使用示例
-
-#### 传感器相关
-- [Sensors API](api/sensors.md) - 传感器 API 参考
-- [Sensors 示例](examples/sensors.md) - 传感器使用示例
-
-#### 存储相关
-- [USBDISK API](api/usbdisk.md) - USB 存储 API 参考
-- [USBDISK 示例](examples/usbdisk.md) - USB 存储使用示例
+- [库安装](arduino_setup.md) - 安装指南和配置说明
+- [示例文档](examples/index) - 综合示例
+- [API 参考文档](api/index) - 完整的 API 参考
 
 ## 快速开始
 

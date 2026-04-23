@@ -3,10 +3,10 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="API 参考文档" href="api/index.html"><link rel="prev" title="mPython 开发板文档" href="index.html">
+<link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Arduino 开发环境搭建及库安装" href="arduino_setup.html"><link rel="prev" title="mPython 开发板文档" href="index.html">
 
     <!-- Generated with Sphinx 9.1.0 and Furo 2025.12.19 -->
-        <title>DFRobot_Mindplus_MPython 库文档 - 掌控板3.0 arduino库 v1.0 documentation</title>
+        <title>mPython库概述 - 掌控板3.0 arduino库 v1.0 documentation</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -201,7 +201,8 @@
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <p class="caption" role="heading"><span class="caption-text">目录:</span></p>
 <ul class="current">
-<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">DFRobot_Mindplus_MPython 库文档</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">mPython库概述</a></li>
+<li class="toctree-l1"><a class="reference internal" href="arduino_setup.html">Arduino 开发环境搭建及库安装</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="api/index.html">API 参考文档</a><input aria-label="Toggle navigation of API 参考文档" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="api/display.html">Display API 参考</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/rgb.html">RGB API 参考</a></li>
@@ -211,7 +212,6 @@
 <li class="toctree-l2"><a class="reference internal" href="api/touchpad.html">TouchPad API 参考</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/wifi.html">WiFi API 参考</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/sensors.html">Sensors API 参考</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/usbdisk.html">USBDISK API 参考</a></li>
 </ul>
 </li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="examples/index.html">示例代码</a><input aria-label="Toggle navigation of 示例代码" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
@@ -223,7 +223,6 @@
 <li class="toctree-l2"><a class="reference internal" href="examples/touchpad.html">TouchPad 示例</a></li>
 <li class="toctree-l2"><a class="reference internal" href="examples/wifi.html">WiFi 示例</a></li>
 <li class="toctree-l2"><a class="reference internal" href="examples/sensors.html">Sensors 示例</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/usbdisk.html">USBDISK 示例</a></li>
 </ul>
 </li>
 </ul>
@@ -264,74 +263,19 @@
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section class="tex2jax_ignore mathjax_ignore" id="dfrobot-mindplus-mpython">
-<h1>DFRobot_Mindplus_MPython 库文档<a class="headerlink" href="#dfrobot-mindplus-mpython" title="Link to this heading">¶</a></h1>
+          <section class="tex2jax_ignore mathjax_ignore" id="mpython">
+<h1>mPython库概述<a class="headerlink" href="#mpython" title="Link to this heading">¶</a></h1>
 <p>本文档提供了 DFRobot_Mindplus_MPython 库的详细使用指南和 API 参考。</p>
 <section id="id1">
 <h2>文档结构<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="#api_reference.md"><span class="xref myst">API 参考文档</span></a> - 完整的 API 参考</p></li>
-<li><p><a class="reference internal" href="#examples.md"><span class="xref myst">示例文档</span></a> - 综合示例</p></li>
+<li><p><a class="reference internal" href="arduino_setup.html"><span class="std std-doc">库安装</span></a> - 安装指南和配置说明</p></li>
+<li><p><a class="reference internal" href="examples/index.html"><span class="doc std std-doc">示例文档</span></a> - 综合示例</p></li>
+<li><p><a class="reference internal" href="api/index.html"><span class="doc std std-doc">API 参考文档</span></a> - 完整的 API 参考</p></li>
 </ul>
+</section>
 <section id="id2">
-<h3>按功能部件分类的文档<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
-<section id="id3">
-<h4>显示相关<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h4>
-<ul class="simple">
-<li><p><a class="reference internal" href="api/display.html"><span class="std std-doc">Display API</span></a> - 显示屏 API 参考</p></li>
-<li><p><a class="reference internal" href="examples/display.html"><span class="std std-doc">Display 示例</span></a> - 显示屏使用示例</p></li>
-</ul>
-</section>
-<section id="id4">
-<h4>灯光相关<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h4>
-<ul class="simple">
-<li><p><a class="reference internal" href="api/rgb.html"><span class="std std-doc">RGB API</span></a> - RGB LED API 参考</p></li>
-<li><p><a class="reference internal" href="examples/rgb.html"><span class="std std-doc">RGB 示例</span></a> - RGB LED 使用示例</p></li>
-</ul>
-</section>
-<section id="id5">
-<h4>声音相关<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h4>
-<ul class="simple">
-<li><p><a class="reference internal" href="api/buzz.html"><span class="std std-doc">Buzz API</span></a> - 蜂鸣器 API 参考</p></li>
-<li><p><a class="reference internal" href="examples/buzz.html"><span class="std std-doc">Buzz 示例</span></a> - 蜂鸣器使用示例</p></li>
-<li><p><a class="reference internal" href="api/audio.html"><span class="std std-doc">Audio API</span></a> - 音频模块 API 参考</p></li>
-<li><p><a class="reference internal" href="examples/audio.html"><span class="std std-doc">Audio 示例</span></a> - 音频模块使用示例</p></li>
-</ul>
-</section>
-<section id="id6">
-<h4>输入相关<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h4>
-<ul class="simple">
-<li><p><a class="reference internal" href="api/button.html"><span class="std std-doc">Button API</span></a> - 按钮 API 参考</p></li>
-<li><p><a class="reference internal" href="examples/button.html"><span class="std std-doc">Button 示例</span></a> - 按钮使用示例</p></li>
-<li><p><a class="reference internal" href="api/touchpad.html"><span class="std std-doc">TouchPad API</span></a> - 触摸板 API 参考</p></li>
-<li><p><a class="reference internal" href="examples/touchpad.html"><span class="std std-doc">TouchPad 示例</span></a> - 触摸板使用示例</p></li>
-</ul>
-</section>
-<section id="id7">
-<h4>网络相关<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h4>
-<ul class="simple">
-<li><p><a class="reference internal" href="api/wifi.html"><span class="std std-doc">WiFi API</span></a> - WiFi 模块 API 参考</p></li>
-<li><p><a class="reference internal" href="examples/wifi.html"><span class="std std-doc">WiFi 示例</span></a> - WiFi 模块使用示例</p></li>
-</ul>
-</section>
-<section id="id8">
-<h4>传感器相关<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h4>
-<ul class="simple">
-<li><p><a class="reference internal" href="api/sensors.html"><span class="std std-doc">Sensors API</span></a> - 传感器 API 参考</p></li>
-<li><p><a class="reference internal" href="examples/sensors.html"><span class="std std-doc">Sensors 示例</span></a> - 传感器使用示例</p></li>
-</ul>
-</section>
-<section id="id9">
-<h4>存储相关<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h4>
-<ul class="simple">
-<li><p><a class="reference internal" href="api/usbdisk.html"><span class="std std-doc">USBDISK API</span></a> - USB 存储 API 参考</p></li>
-<li><p><a class="reference internal" href="examples/usbdisk.html"><span class="std std-doc">USBDISK 示例</span></a> - USB 存储使用示例</p></li>
-</ul>
-</section>
-</section>
-</section>
-<section id="id10">
-<h2>快速开始<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h2>
+<h2>快速开始<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
 <ol class="arabic simple">
 <li><p>安装 DFRobot_Mindplus_MPython 库</p></li>
 <li><p>包含头文件：<code class="docutils literal notranslate"><span class="pre">#include</span> <span class="pre">&lt;MPython.h&gt;</span></code></p></li>
@@ -339,8 +283,8 @@
 <li><p>开始使用各个模块的功能</p></li>
 </ol>
 </section>
-<section id="id11">
-<h2>示例代码<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h2>
+<section id="id3">
+<h2>示例代码<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
 <div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;MPython.h&gt;</span>
 
 <span class="kt">void</span><span class="w"> </span><span class="nf">setup</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
@@ -379,12 +323,12 @@
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="api/index.html">
+          <a class="next-page" href="arduino_setup.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">API 参考文档</div>
+                <div class="title">Arduino 开发环境搭建及库安装</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -429,22 +373,10 @@
         <div class="toc-tree-container">
           <div class="toc-tree">
             <ul>
-<li><a class="reference internal" href="#">DFRobot_Mindplus_MPython 库文档</a><ul>
-<li><a class="reference internal" href="#id1">文档结构</a><ul>
-<li><a class="reference internal" href="#id2">按功能部件分类的文档</a><ul>
-<li><a class="reference internal" href="#id3">显示相关</a></li>
-<li><a class="reference internal" href="#id4">灯光相关</a></li>
-<li><a class="reference internal" href="#id5">声音相关</a></li>
-<li><a class="reference internal" href="#id6">输入相关</a></li>
-<li><a class="reference internal" href="#id7">网络相关</a></li>
-<li><a class="reference internal" href="#id8">传感器相关</a></li>
-<li><a class="reference internal" href="#id9">存储相关</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a class="reference internal" href="#id10">快速开始</a></li>
-<li><a class="reference internal" href="#id11">示例代码</a></li>
+<li><a class="reference internal" href="#">mPython库概述</a><ul>
+<li><a class="reference internal" href="#id1">文档结构</a></li>
+<li><a class="reference internal" href="#id2">快速开始</a></li>
+<li><a class="reference internal" href="#id3">示例代码</a></li>
 </ul>
 </li>
 </ul>

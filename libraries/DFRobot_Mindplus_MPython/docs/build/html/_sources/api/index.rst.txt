@@ -13,4 +13,3 @@ API 参考文档
    touchpad
    wifi
    sensors
-   usbdisk

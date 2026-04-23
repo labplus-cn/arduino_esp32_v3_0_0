@@ -8,10 +8,6 @@
 
 本示例演示了如何控制 RGB LED 的颜色。
 
-### 功能演示图片
-
-![RGB 颜色控制](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20RGB%20LEDs%20lit%20in%20different%20colors&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -87,10 +83,6 @@ void loop() {
 
 本示例演示了如何控制多个 RGB LED。
 
-### 功能演示图片
-
-![多 LED 控制](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20multiple%20RGB%20LEDs%20lit%20in%20different%20colors&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -158,10 +150,6 @@ void loop() {
 
 本示例演示了如何控制 RGB LED 的亮度。
 
-### 功能演示图片
-
-![亮度控制](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20RGB%20LED%20showing%20different%20brightness%20levels&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -212,10 +200,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何创建 RGB LED 的颜色渐变效果。
-
-### 功能演示图片
-
-![颜色渐变](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20with%20RGB%20LED%20showing%20color%20gradient%20effect&image_size=landscape_16_9)
 
 ### 示例代码
 

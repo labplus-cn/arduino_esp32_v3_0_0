@@ -8,10 +8,6 @@
 
 本示例演示了如何连接到 WiFi 网络并获取网络信息。
 
-### 功能演示图片
-
-![WiFi 连接](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20connected%20to%20WiFi%2C%20display%20showing%20network%20information&image_size=landscape_16_9)
-
 ### 示例代码
 
 ```cpp
@@ -56,10 +52,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何扫描周围的 WiFi 网络。
-
-### 功能演示图片
-
-![WiFi 扫描](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20WiFi%20scan%20results&image_size=landscape_16_9)
 
 ### 示例代码
 
@@ -107,10 +99,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何获取详细的网络信息。
-
-### 功能演示图片
-
-![网络信息获取](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20detailed%20network%20information&image_size=landscape_16_9)
 
 ### 示例代码
 
@@ -160,10 +148,6 @@ void loop() {
 ### 示例介绍
 
 本示例演示了如何设置 WiFi 自动重连功能。
-
-### 功能演示图片
-
-![自动重连设置](https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=mPython%20board%20display%20showing%20WiFi%20auto-reconnect%20status&image_size=landscape_16_9)
 
 ### 示例代码
 
