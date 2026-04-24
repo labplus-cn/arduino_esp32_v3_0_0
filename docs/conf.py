@@ -6,8 +6,8 @@
 import os
 import sys
 
-# Add parent directory to sys.path to find Markdown files
-sys.path.insert(0, os.path.abspath('..'))
+# Add current directory to sys.path to find Markdown files
+sys.path.insert(0, os.path.abspath('.'))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -46,11 +46,14 @@ source_suffix = {
     '.md': 'markdown',
 }
 
+# Source directory - now in current directory
+source_dir = '.'
+
 templates_path = ['_templates']
 exclude_patterns = []
 
-# Add parent directory to sys.path to find Markdown files
-sys.path.insert(0, os.path.abspath('..'))
+# Add current directory to sys.path to find Markdown files
+sys.path.insert(0, os.path.abspath('.'))
 
 language = 'chinese'
 
