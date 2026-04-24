@@ -47,7 +47,16 @@ source_suffix = {
 }
 
 # Source directory - now in current directory
-source_dir = '.'
+srcdir = '.'
+
+# Set the root document
+root_doc = 'index'
+
+# Make sure Sphinx looks in the current directory for source files
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
 
 templates_path = ['_templates']
 exclude_patterns = []
