@@ -20,7 +20,7 @@ mPython_QMI8658::mPython_QMI8658() {
 bool mPython_QMI8658::begin(TwoWire &wire, uint8_t address) {
     _wire = &wire;
     _address = address;
-    _wire->begin();
+    // _wire->begin();
     
     // Test communication
     uint8_t who_am_i = getWhoAmI();

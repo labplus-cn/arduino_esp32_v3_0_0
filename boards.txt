@@ -142,12 +142,10 @@ labplus_mpython_v3.menu.USBMode.hwcdc.build.usb_mode=1
 labplus_mpython_v3.menu.USBMode.default=USB-OTG (TinyUSB)
 labplus_mpython_v3.menu.USBMode.default.build.usb_mode=0
 
+labplus_mpython_v3.menu.CDCOnBoot.default=USB CDC On Boot (Enabled)
+labplus_mpython_v3.menu.CDCOnBoot.default.build.cdc_on_boot=1
 labplus_mpython_v3.menu.CDCOnBoot.disabled=Disabled
 labplus_mpython_v3.menu.CDCOnBoot.disabled.build.cdc_on_boot=0
-labplus_mpython_v3.menu.CDCOnBoot.default=Enabled
-labplus_mpython_v3.menu.CDCOnBoot.default.build.cdc_on_boot=1
-labplus_mpython_v3.menu.CDCOnBoot.cdc=Enabled
-labplus_mpython_v3.menu.CDCOnBoot.cdc.build.cdc_on_boot=1
 
 labplus_mpython_v3.menu.MSCOnBoot.default=Disabled
 labplus_mpython_v3.menu.MSCOnBoot.default.build.msc_on_boot=0
