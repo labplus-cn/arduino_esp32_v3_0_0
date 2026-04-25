@@ -15,7 +15,6 @@ $excludePatterns = @(
     ".git",
     ".gitignore",
     ".gitattributes",
-    "libraries\DFRobot_Mindplus_MPython\src\display\lvgl_font\LVFontReader.cpp",
     "release",
     "create_release.ps1"
 )
@@ -34,6 +33,11 @@ New-Item -ItemType Directory -Path $releaseDir | Out-Null
 $tempDir = Join-Path $env:TEMP "release_temp_$(Get-Random)"
 New-Item -ItemType Directory -Path $tempDir | Out-Null
 
+# Create secondary directory for extraction
+$secondaryDir = "3.0.0"
+$secondaryDirPath = Join-Path $tempDir $secondaryDir
+New-Item -ItemType Directory -Path $secondaryDirPath | Out-Null
+
 Write-Host "Copying files to temp directory..."
 
 # Copy all files except excluded ones
@@ -41,12 +45,12 @@ Get-ChildItem -Path $sourceDir | Where-Object {
     $name = $_.Name
     $excludePatterns -notcontains $name
 } | ForEach-Object {
-    $dest = Join-Path $tempDir $_.Name
+    $dest = Join-Path $secondaryDirPath $_.Name
     Copy-Item $_.FullName -Destination $dest -Recurse -Force
 }
 
 # Remove excluded file if exists
-$excludedFile = Join-Path $tempDir "libraries\DFRobot_Mindplus_MPython\src\display\lvgl_font\LVFontReader.cpp"
+$excludedFile = Join-Path $secondaryDirPath "libraries\DFRobot_Mindplus_MPython\src\display\lvgl_font\LVFontReader.cpp"
 if (Test-Path $excludedFile) {
     Remove-Item $excludedFile -Force
 }
