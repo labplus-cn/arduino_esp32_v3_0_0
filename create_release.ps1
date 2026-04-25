@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 # Configuration
 $sourceDir = $PSScriptRoot
 $releaseDir = Join-Path $sourceDir "release"
-$zipFileName = "3.0.0.zip"
+$zipFileName = "esp32_3.0.0.zip"
 $zipFilePath = Join-Path $releaseDir $zipFileName
 $fileInfoPath = Join-Path $releaseDir "fileInfo.txt"
 
@@ -34,7 +34,7 @@ $tempDir = Join-Path $env:TEMP "release_temp_$(Get-Random)"
 New-Item -ItemType Directory -Path $tempDir | Out-Null
 
 # Create secondary directory for extraction
-$secondaryDir = "3.0.0"
+$secondaryDir = "esp32_3.0.0"
 $secondaryDirPath = Join-Path $tempDir $secondaryDir
 New-Item -ItemType Directory -Path $secondaryDirPath | Out-Null
 
