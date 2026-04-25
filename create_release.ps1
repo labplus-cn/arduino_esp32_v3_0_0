@@ -49,12 +49,6 @@ Get-ChildItem -Path $sourceDir | Where-Object {
     Copy-Item $_.FullName -Destination $dest -Recurse -Force
 }
 
-# Remove excluded file if exists
-$excludedFile = Join-Path $secondaryDirPath "libraries\DFRobot_Mindplus_MPython\src\display\lvgl_font\LVFontReader.cpp"
-if (Test-Path $excludedFile) {
-    Remove-Item $excludedFile -Force
-}
-
 Write-Host "Creating zip archive..."
 Compress-Archive -Path "$tempDir\*" -DestinationPath $zipFilePath -Force
 
